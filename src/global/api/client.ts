@@ -188,9 +188,18 @@ export async function post<T, B = unknown>(
   return request<T>(path, { ...options, method: "POST", body });
 }
 
+export async function put<T, B = unknown>(
+  path: string,
+  body: B,
+  options?: RequestOptions
+): Promise<T> {
+  return request<T>(path, { ...options, method: "PUT", body });
+}
+
 export const client = {
   mode: API_MODE,
   useMockEngine: USE_MOCK_ENGINE,
   get,
   post,
+  put,
 };

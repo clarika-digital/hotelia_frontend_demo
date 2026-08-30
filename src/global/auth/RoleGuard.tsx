@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 import { useSessionStore } from "@/stores/session-store";
-import { PAGE_ROUTES } from "@/domains/auth/constants";
+import { PAGE_ROUTES, ROLE_LANDING } from "@/domains/auth/constants";
 
 interface RoleGuardProps {
   children: ReactNode;
@@ -24,7 +24,9 @@ export function RoleGuard({ children, allowedRoles }: RoleGuardProps) {
       return;
     }
     if (allowedRoles && claims.role && !allowedRoles.includes(claims.role)) {
-      router.replace(PAGE_ROUTES.guestLanding);
+      router.replace(
+        ROLE_LANDING[claims.role] ?? PAGE_ROUTES.guestLanding
+      );
     }
   }, [claims, allowedRoles, router]);
 

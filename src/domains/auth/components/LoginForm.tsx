@@ -36,10 +36,16 @@ export function LoginForm() {
     setError(null);
     try {
       const user = await login({ username, password });
-      const dest =
+      let dest =
         user.userType === "staff" && user.role
           ? ROLE_LANDING[user.role] ?? PAGE_ROUTES.guestLanding
-          : PAGE_ROUTES.guestLanding;
+          : PAGE_ROUTES.guestAccount;
+      if (user.userType === "guest" && typeof window !== "undefined") {
+        const next = new URLSearchParams(window.location.search).get("next");
+        if (next && next.startsWith("/") && !next.startsWith("//")) {
+          dest = next;
+        }
+      }
       redirectRef.current = dest;
       setSuccess(true);
       window.setTimeout(() => router.replace(dest), 450);

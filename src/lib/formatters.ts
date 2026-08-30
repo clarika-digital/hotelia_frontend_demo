@@ -27,3 +27,15 @@ export function formatDate(date: string | Date, locale = "en-US"): string {
     day: "numeric",
   }).format(d);
 }
+
+export function formatShortDate(
+  date: string | Date,
+  locale = "en-GB"
+): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  return new Intl.DateTimeFormat(locale, {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(d);
+}

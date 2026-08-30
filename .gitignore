@@ -30,7 +30,5 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-.idea
-.vscode
 .git
 .github

@@ -9,6 +9,7 @@ import { formatMoney } from "@/lib/formatters";
 import { cn } from "@/lib/cn";
 import { logout } from "@/domains/auth/api";
 import { PAGE_ROUTES } from "@/domains/auth/constants";
+import { BOOKING_PAGE_ROUTES } from "@/domains/booking/constants";
 import { useSessionStore } from "@/stores/session-store";
 
 export function Header() {
@@ -83,6 +84,18 @@ export function Header() {
             {claims ? (
               <>
                 <span className="text-brand-navy">Hi, {firstName}</span>
+                <span className="text-[#ccc]">|</span>
+                {claims.userType === "guest" ? (
+                  <Link
+                    href={PAGE_ROUTES.guestAccount}
+                    className="no-underline text-brand-navy"
+                  >
+                    My Account
+                  </Link>
+                ) : (
+                  <span className="text-brand-navy">Staff</span>
+                )}
+                <span className="text-[#ccc]">|</span>
                 <button
                   type="button"
                   onClick={handleSignOut}
@@ -101,7 +114,7 @@ export function Header() {
               </Link>
             )}
             <Link
-              href="/offers/"
+              href={BOOKING_PAGE_ROUTES.select}
               className="no-underline text-white font-semibold tracking-[.5px]"
               style={{ background: "#876a20", padding: "10px 22px", borderRadius: 2 }}
             >
@@ -305,6 +318,15 @@ export function Header() {
                 <span className="text-sm font-semibold text-brand-navy">
                   Hi, {firstName}
                 </span>
+                {claims.userType === "guest" && (
+                  <Link
+                    href={PAGE_ROUTES.guestAccount}
+                    onClick={() => setMobileOpen(false)}
+                    className="text-sm font-semibold text-brand-gold no-underline"
+                  >
+                    My Account
+                  </Link>
+                )}
                 <button
                   type="button"
                   onClick={handleSignOut}
