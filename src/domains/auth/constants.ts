@@ -24,5 +24,5 @@ export const ROLE_LANDING: Record<string, string> = {
   manager: "/manager/",
   it_manager: "/it/",
   executive: "/executive/",
-  super_admin: "/superadmin/",
+  super_admin: "/super_admin/",
 };

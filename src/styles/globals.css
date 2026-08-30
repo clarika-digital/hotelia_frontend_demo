@@ -102,6 +102,101 @@ h4 {
   animation: nav-panel 0.18s ease-out;
 }
 
+/* ===== Auth screen motion ===== */
+@keyframes ken-burns {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.08);
+  }
+}
+.animate-kenburns {
+  animation: ken-burns 20s ease-out both;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-up {
+  animation: fade-up 0.55s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@keyframes shake {
+  10%,
+  90% {
+    transform: translateX(-1px);
+  }
+  20%,
+  80% {
+    transform: translateX(2px);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translateX(-4px);
+  }
+  40%,
+  60% {
+    transform: translateX(4px);
+  }
+}
+.animate-shake {
+  animation: shake 0.4s ease;
+}
+
+/* ===== Button sheen sweep (hover) ===== */
+.btn-sheen {
+  position: relative;
+  overflow: hidden;
+}
+.btn-sheen::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -80%;
+  width: 45%;
+  transform: skewX(-20deg);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
+  transition: left 0.5s ease;
+}
+.btn-sheen:hover::after {
+  left: 135%;
+}
+
+/* ===== Browser autofill restyle ===== */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #fff inset;
+  -webkit-text-fill-color: var(--brand-navy);
+  caret-color: var(--brand-navy);
+  transition: background-color 9999s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-kenburns,
+  .animate-fade-up,
+  .animate-shake,
+  .btn-sheen::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
 /* ===== Hero slider (matches static homepage) ===== */
 .hero-slider {
   position: relative;

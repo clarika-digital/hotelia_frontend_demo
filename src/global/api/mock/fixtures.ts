@@ -8,6 +8,8 @@ export interface MockUser {
   pin?: string;
   role?: string;
   permissions: string[];
+  /** Simulated on-premise device state. Denied only when the role requires geofence
+   *  (see geofenceAllowed in engine.ts: executive/super_admin are whitelisted/exempt). */
   geofenceVerified: boolean;
 }
 
@@ -98,14 +100,14 @@ export const STAFF_USERS: MockUser[] = [
     geofenceVerified: true,
   },
   {
-    id: "staff-superadmin",
+    id: "staff-super_admin",
     userType: "staff",
     name: "Root Overseer",
-    email: "superadmin@hotelia.test",
+    email: "super_admin@hotelia.test",
     password: "staff123",
     pin: "1234",
     role: "super_admin",
-    permissions: ["rbac.override", "rbac.whitelist", "audit.superadmin.read"],
+    permissions: ["rbac.override", "rbac.whitelist", "audit.super_admin.read"],
     geofenceVerified: true,
   },
 ];

@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { login } from "@/domains/auth/api";
 import { PAGE_ROUTES, ROLE_LANDING } from "@/domains/auth/constants";
-import { ApiError, client } from "@/global/api/client";
+import { ApiError } from "@/global/api/client";
+import { cn } from "@/lib/cn";
+import { PasswordField } from "./PasswordField";
 
 export function LoginForm() {
   const router = useRouter();
@@ -16,6 +18,9 @@ export function LoginForm() {
   );
   const [geofenceBlocked, setGeofenceBlocked] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [shaking, setShaking] = useState(false);
+  const redirectRef = useRef<string | null>(null);
 
   function handleBack() {
     if (window.history.length > 1) {
@@ -31,12 +36,15 @@ export function LoginForm() {
     setError(null);
     try {
       const user = await login({ username, password });
-      if (user.userType === "staff" && user.role) {
-        router.push(ROLE_LANDING[user.role] ?? PAGE_ROUTES.guestLanding);
-      } else {
-        router.push(PAGE_ROUTES.guestLanding);
-      }
+      const dest =
+        user.userType === "staff" && user.role
+          ? ROLE_LANDING[user.role] ?? PAGE_ROUTES.guestLanding
+          : PAGE_ROUTES.guestLanding;
+      redirectRef.current = dest;
+      setSuccess(true);
+      window.setTimeout(() => router.replace(dest), 450);
     } catch (err) {
+      setShaking(true);
       if (err instanceof ApiError && err.status === 403) {
         setGeofenceBlocked(
           err.detail ?? "On-premise access required for this account."
@@ -53,11 +61,17 @@ export function LoginForm() {
   }
 
   return (
-    <div className="w-full rounded bg-white p-10 shadow-lg">
+    <div
+      className={cn(
+        "w-full rounded-2xl border border-white/50 bg-white/85 p-10 shadow-2xl shadow-brand-navy/30 backdrop-blur-xl",
+        shaking && "animate-shake"
+      )}
+      onAnimationEnd={() => setShaking(false)}
+    >
       <button
         type="button"
         onClick={handleBack}
-        className="mb-6 inline-flex items-center gap-1.5 text-sm font-semibold text-gray-500 no-underline transition-colors hover:text-brand-gold"
+        className="mb-6 inline-flex items-center gap-1.5 rounded text-sm font-semibold text-gray-500 no-underline transition-colors hover:text-brand-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/40"
       >
         <span aria-hidden>&larr;</span> Back
       </button>
@@ -93,12 +107,18 @@ export function LoginForm() {
         </div>
       ) : (
         <>
-          <h1 className="text-center font-display text-3xl text-brand-navy">
-            Sign In
-          </h1>
-          <p className="mt-2 text-center text-sm text-gray-500">
-            Welcome back &mdash; sign in to continue to your account.
-          </p>
+          <div className="text-center">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.3em] text-brand-gold">
+              Welcome to Hotelia
+            </span>
+            <h1 className="mt-2 font-display text-3xl text-brand-navy">
+              Sign In
+            </h1>
+            <div className="mx-auto mt-3 h-px w-10 bg-brand-gold/60" />
+            <p className="mt-4 text-sm text-gray-500">
+              Welcome back &mdash; sign in to continue to your account.
+            </p>
+          </div>
 
           {error && (
             <div
@@ -109,6 +129,25 @@ export function LoginForm() {
               {error.detail && (
                 <div className="mt-1 text-red-600">{error.detail}</div>
               )}
+            </div>
+          )}
+
+          {success && (
+            <div
+              role="status"
+              className="mt-6 flex items-center gap-2 rounded border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
+                <path d="M20 6L9 17l-5-5" />
+              </svg>
+              Signed in — redirecting&hellip;
             </div>
           )}
 
@@ -127,52 +166,60 @@ export function LoginForm() {
                 placeholder="Email / PIN"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full rounded border border-gray-300 px-4 py-3 text-sm text-brand-navy outline-none focus:border-brand-gold"
+                disabled={success}
+                className="w-full rounded border border-gray-300 bg-white px-4 py-3 text-sm text-brand-navy outline-none transition-colors focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/30 disabled:cursor-not-allowed disabled:opacity-60"
                 autoComplete="username"
               />
             </div>
-            <div>
-              <label
-                htmlFor="password"
-                className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500"
-              >
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded border border-gray-300 px-4 py-3 text-sm text-brand-navy outline-none focus:border-brand-gold"
-                autoComplete="current-password"
-              />
-            </div>
+
+            <PasswordField
+              id="password"
+              label="Password"
+              value={password}
+              onChange={setPassword}
+              required
+            />
 
             <button
               type="submit"
-              disabled={submitting}
-              className="w-full rounded bg-brand-gold px-6 py-3 font-semibold text-white transition-colors hover:bg-brand-goldLight disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={submitting || success}
+              className="btn-sheen w-full rounded bg-brand-gold px-6 py-3 font-semibold text-white transition-colors hover:bg-brand-goldLight disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {submitting ? "Signing in…" : "Sign In"}
+              {submitting ? (
+                <span className="inline-flex items-center justify-center gap-2">
+                  <svg
+                    className="h-4 w-4 animate-spin"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                    />
+                  </svg>
+                  Signing in&hellip;
+                </span>
+              ) : (
+                "Sign In"
+              )}
             </button>
           </form>
-
-          {client.mock && (
-            <div className="mt-6 rounded bg-surface-muted px-4 py-3 text-xs leading-relaxed text-gray-500">
-              <strong className="text-brand-navy">Demo accounts</strong> —
-              staff: frontdesk@hotelia.test or PIN <code>1234</code> &middot;
-              password <code>staff123</code>. Guest: guest@hotelia.test &middot;
-              password <code>guest123</code>. housekeeping@hotelia.test shows
-              the geofence-blocked state.
-            </div>
-          )}
 
           <p className="mt-6 text-center text-sm text-gray-500">
             New here?{" "}
             <Link
               href={PAGE_ROUTES.register}
-              className="font-semibold text-brand-gold no-underline hover:underline"
+              className="font-semibold text-brand-gold no-underline hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/40"
             >
               Create an account
             </Link>

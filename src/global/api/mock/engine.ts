@@ -1,3 +1,4 @@
+import { digitsOnly, isValidE164 } from "@/data/phones";
 import { GUEST_USERS, STAFF_USERS, type MockUser } from "./fixtures";
 
 interface MockResponse {
@@ -112,6 +113,28 @@ function bearerToken(headers?: Record<string, string>): string | null {
   return value.replace(/^Bearer\s+/i, "");
 }
 
+function canonicalPhone(value: string): string {
+  const digits = digitsOnly(value);
+  return digits ? `+${digits}` : "";
+}
+
+function matchesPhone(identifier: string, phone: string): boolean {
+  const digits = digitsOnly(identifier);
+  if (digits.length < 7) return false;
+  return canonicalPhone(identifier) === canonicalPhone(phone);
+}
+
+const GEOFENCE_EXEMPT_ROLES = new Set(["executive", "super_admin"]);
+
+function roleRequiresGeofence(role: string | undefined): boolean {
+  return !role || !GEOFENCE_EXEMPT_ROLES.has(role);
+}
+
+function geofenceAllowed(user: MockUser): boolean {
+  if (!roleRequiresGeofence(user.role)) return true;
+  return user.geofenceVerified;
+}
+
 export async function mockRequest(
   path: string,
   options: MockRequest
@@ -137,7 +160,7 @@ export async function mockRequest(
           "Username or password is incorrect."
         );
       }
-      if (!staffUser.geofenceVerified) {
+      if (!geofenceAllowed(staffUser)) {
         return problem(
           403,
           "Geofence violation",
@@ -148,7 +171,9 @@ export async function mockRequest(
     }
 
     const guestUser = [...GUEST_USERS, ...registeredGuests].find(
-      (u) => u.email.toLowerCase() === username || u.phone === body.username
+      (u) =>
+        u.email.toLowerCase() === username ||
+        matchesPhone(String(body.username ?? ""), u.phone ?? "")
     );
     if (guestUser) {
       if (guestUser.password !== body.password) {
@@ -171,7 +196,7 @@ export async function mockRequest(
   if (method === "POST" && path === "/v1/auth/guest/register") {
     const name = String(body.name ?? "").trim();
     const email = String(body.email ?? "").trim().toLowerCase();
-    const phone = String(body.phone ?? "").trim();
+    const phone = canonicalPhone(String(body.phone ?? ""));
     const password = String(body.password ?? "");
     if (!name || !email || !phone || !password) {
       return problem(
@@ -180,10 +205,19 @@ export async function mockRequest(
         "Name, email, phone and password are required."
       );
     }
+    if (!isValidE164(phone)) {
+      return problem(
+        400,
+        "Invalid phone number",
+        "Enter a valid phone number including the country code."
+      );
+    }
     const allGuests = [...GUEST_USERS, ...registeredGuests];
     if (
       allGuests.some(
-        (u) => u.email.toLowerCase() === email || u.phone === phone
+        (u) =>
+          u.email.toLowerCase() === email ||
+          canonicalPhone(u.phone ?? "") === phone
       )
     ) {
       return problem(
@@ -212,7 +246,7 @@ export async function mockRequest(
     if (!user || user.password !== body.password || user.pin !== body.pin) {
       return problem(401, "Invalid credentials", "Email, password or PIN is incorrect.");
     }
-    if (!user.geofenceVerified) {
+    if (!geofenceAllowed(user)) {
       return problem(
         403,
         "Geofence violation",
@@ -225,7 +259,9 @@ export async function mockRequest(
   if (method === "POST" && path === "/v1/auth/guest/login") {
     const identifier = String(body.identifier ?? "").trim().toLowerCase();
     const user = GUEST_USERS.find(
-      (u) => u.email.toLowerCase() === identifier || u.phone === body.identifier
+      (u) =>
+        u.email.toLowerCase() === identifier ||
+        matchesPhone(identifier, u.phone ?? "")
     );
     if (!user || user.password !== body.password) {
       return problem(

@@ -18,9 +18,23 @@ export class ApiError extends Error {
 }
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
-const API_MODE = process.env.NEXT_PUBLIC_API_MODE ?? "live";
 
-export const API_MODE_MOCK = API_MODE === "mock";
+export type ApiMode = "dev" | "test" | "prod";
+
+const LEGACY_TEST_MODES = new Set(["mock"]);
+
+function resolveApiMode(value: string | undefined): ApiMode {
+  const mode = (value ?? "prod").trim().toLowerCase();
+  if (mode === "test" || LEGACY_TEST_MODES.has(mode)) return "test";
+  if (mode === "dev") return "dev";
+  return "prod";
+}
+
+export const API_MODE: ApiMode = resolveApiMode(
+  process.env.NEXT_PUBLIC_API_MODE
+);
+
+export const USE_MOCK_ENGINE = API_MODE === "test";
 
 export function idempotencyKey(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -71,7 +85,7 @@ async function send(path: string, options: RequestOptions): Promise<ApiResponse>
     headers["Idempotency-Key"] = options.idempotencyKey ?? idempotencyKey();
   }
 
-  if (API_MODE_MOCK) {
+  if (USE_MOCK_ENGINE) {
     const { mockRequest } = await import("./mock/engine");
     return mockRequest(path, {
       method: options.method,
@@ -176,7 +190,7 @@ export async function post<T, B = unknown>(
 
 export const client = {
   mode: API_MODE,
-  mock: API_MODE_MOCK,
+  useMockEngine: USE_MOCK_ENGINE,
   get,
   post,
 };
