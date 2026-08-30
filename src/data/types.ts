@@ -24,6 +24,12 @@ export interface MegaNavItem {
   href?: string;
   columns?: NavColumn[];
   overview?: { label: string; href: string };
+  roomMenu?: RoomMenuCategory[];
+}
+
+export interface RoomMenuCategory {
+  label: string;
+  rooms: Room[];
 }
 
 export interface HeroSlide {
@@ -40,6 +46,7 @@ export interface Room {
   category: "rooms" | "suites" | "horizon-club" | "connecting";
   subtitle?: string;
   image: string;
+  gallery?: string[];
   description: string;
   size?: string;
   occupancy?: string;

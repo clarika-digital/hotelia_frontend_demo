@@ -43,6 +43,12 @@ export const diningVenues: DiningVenue[] = [
   },
 ];
 
+export function getDiningArea(
+  type: DiningVenue["type"]
+): "restaurants" | "bars-lounges" {
+  return type === "restaurant" ? "restaurants" : "bars-lounges";
+}
+
 export function getDiningVenueBySlug(slug: string): DiningVenue | undefined {
   return diningVenues.find((v) => v.slug === slug);
 }

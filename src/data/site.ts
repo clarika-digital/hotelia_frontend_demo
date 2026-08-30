@@ -4,6 +4,7 @@ import type {
   HeroSlide,
   MegaNavItem,
 } from "./types";
+import { getRoomsByCategory } from "./rooms";
 
 export const siteConfig = {
   name: "Hotelia Accra",
@@ -87,40 +88,13 @@ export const megaNav: MegaNavItem[] = [
   },
   {
     label: "Rooms & Suites",
-    columns: [
-      {
-        title: "Rooms",
-        links: [
-          { label: "Deluxe Room", href: "/rooms-suites/rooms/deluxe/" },
-          { label: "Deluxe Imperial Garden View Room", href: "/rooms-suites/rooms/deluxe-imperial-garden-view/" },
-          { label: "Premier Room", href: "/rooms-suites/rooms/premier-room/" },
-        ],
-      },
-      {
-        title: "Horizon Club",
-        links: [
-          { label: "Horizon Club Deluxe Room", href: "/rooms-suites/horizon-club/horizon-deluxe-room/" },
-          { label: "Horizon Club Deluxe Imperial Garden View", href: "/rooms-suites/horizon-club/horizon-deluxe-imperial-garden-view/" },
-          { label: "Horizon Club Premier Room", href: "/rooms-suites/horizon-club/horizon-premier-room/" },
-        ],
-      },
-      {
-        title: "Suites",
-        links: [
-          { label: "Executive Suite", href: "/rooms-suites/suites/executive-suite/" },
-          { label: "Premier Suite", href: "/rooms-suites/suites/premier-suite/" },
-          { label: "Hotelia Suite", href: "/rooms-suites/suites/hotelia-suite/" },
-          { label: "Presidential Suite", href: "/rooms-suites/suites/presidential-suite/" },
-        ],
-      },
-      {
-        title: "Connecting Rooms",
-        links: [
-          { label: "Two Deluxe Rooms Inter-Connecting", href: "/rooms-suites/connecting/two-deluxe-rooms-inter-connecting/" },
-        ],
-      },
-    ],
     overview: { label: "Rooms & Suites Overview", href: "/rooms-suites/" },
+    roomMenu: [
+      { label: "Rooms", rooms: getRoomsByCategory("rooms") },
+      { label: "Horizon Club", rooms: getRoomsByCategory("horizon-club") },
+      { label: "Suites", rooms: getRoomsByCategory("suites") },
+      { label: "Connecting Rooms", rooms: getRoomsByCategory("connecting") },
+    ],
   },
   {
     label: "Dining",

@@ -2,17 +2,22 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { megaNav, siteConfig } from "@/data/site";
+import { getRoomHref } from "@/data/rooms";
+import { formatMoney } from "@/lib/formatters";
 import { cn } from "@/lib/cn";
-
-const TOP_NAV_LINKS = megaNav.filter((item) => item.href);
-const DROPDOWN_ITEMS = megaNav.filter((item) => item.columns);
 
 export function Header() {
   const pathname = usePathname();
   const [open, setOpen] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const triggerRefs = useRef(new Map<string, HTMLButtonElement | null>());
+
+  const closeAndFocus = (label: string) => {
+    setOpen(null);
+    triggerRefs.current.get(label)?.focus();
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full">
@@ -71,8 +76,7 @@ export function Header() {
       >
         <div className="mx-auto flex max-w-[1180px] items-stretch justify-between px-5">
           {megaNav.map((item) => {
-            const isDropdown = !!item.columns;
-            if (!isDropdown) {
+            if (!item.columns && !item.roomMenu) {
               return (
                 <Link
                   key={item.label}
@@ -88,25 +92,124 @@ export function Header() {
                 </Link>
               );
             }
+
+            const isActive = item.roomMenu
+              ? pathname.startsWith("/rooms-suites/")
+              : (item.columns?.some((col) =>
+                  col.links.some((link) => link.href === pathname)
+                ) ?? false);
+
             return (
               <div
                 key={item.label}
                 className="relative"
                 onMouseEnter={() => setOpen(item.label)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") closeAndFocus(item.label);
+                }}
               >
                 <button
                   type="button"
-                  className="flex items-center gap-1.5 px-5 text-sm text-white capitalize cursor-pointer"
+                  ref={(el) => {
+                    triggerRefs.current.set(item.label, el);
+                  }}
+                  className={cn(
+                    "flex items-center gap-1.5 px-5 text-sm text-white capitalize cursor-pointer",
+                    "hover:opacity-90",
+                    isActive && "underline underline-offset-4 decoration-2"
+                  )}
                   style={{ minHeight: 40 }}
+                  aria-haspopup="true"
+                  aria-expanded={open === item.label}
+                  onClick={() => setOpen(open === item.label ? null : item.label)}
                 >
                   {item.label}
                   <span className="inline-block rotate-180 text-[10px]" aria-hidden>
                     {"\u25BE"}
                   </span>
                 </button>
-                {open === item.label && (
+
+                {open === item.label && item.roomMenu && (
                   <div
-                    className="fixed left-0 right-0 z-50"
+                    className="fixed left-0 right-0 z-50 animate-nav-panel"
+                    style={{
+                      backgroundColor: "#fff",
+                      boxShadow: "0 2px 4px rgba(0,0,0,.08)",
+                    }}
+                  >
+                    <div className="mx-auto flex max-w-[1180px] flex-wrap gap-6 px-5 pb-5 pt-6">
+                      {item.roomMenu.map((cat) => (
+                        <div key={cat.label} className="w-[262px]">
+                          <h3
+                            className="mb-3 text-base text-[#333]"
+                            style={{ fontFamily: '"Playfair Display", Georgia, serif', fontWeight: 700 }}
+                          >
+                            {cat.label}
+                          </h3>
+                          <ul className="space-y-2">
+                            {cat.rooms.map((room) => {
+                              const href = getRoomHref(room);
+                              return (
+                                <li key={room.slug}>
+                                  <Link
+                                    href={href}
+                                    className={cn(
+                                      "group flex items-center gap-3 rounded p-1 no-underline transition-colors hover:bg-surface-muted",
+                                      pathname === href && "bg-surface-muted"
+                                    )}
+                                    onClick={() => setOpen(null)}
+                                  >
+                                    <div className="h-14 w-20 flex-none overflow-hidden rounded bg-surface-muted">
+                                      <img
+                                        src={room.image}
+                                        alt={room.title}
+                                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
+                                        loading="lazy"
+                                      />
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div
+                                        className={cn(
+                                          "font-display text-sm leading-snug text-brand-navy transition-colors group-hover:text-brand-gold",
+                                          pathname === href && "text-brand-gold"
+                                        )}
+                                      >
+                                        {room.title}
+                                      </div>
+                                      {room.rate && (
+                                        <div className="mt-0.5 text-xs font-semibold text-brand-gold">
+                                          From {formatMoney(room.rate, "GHS")}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </Link>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                    {item.overview && (
+                      <div
+                        className="mx-auto flex max-w-[1180px] items-center px-5"
+                        style={{ borderTop: "1px solid #ccc", height: 50 }}
+                      >
+                        <Link
+                          href={item.overview.href}
+                          className="text-sm no-underline text-brand-gold font-semibold uppercase tracking-wide"
+                          onClick={() => setOpen(null)}
+                        >
+                          {item.overview.label}
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {open === item.label && item.columns && (
+                  <div
+                    className="fixed left-0 right-0 z-50 animate-nav-panel"
                     style={{
                       backgroundColor: "#fff",
                       boxShadow: "0 2px 4px rgba(0,0,0,.08)",
@@ -116,7 +219,7 @@ export function Header() {
                       className="mx-auto flex max-w-[1180px] flex-wrap px-5"
                       style={{ paddingTop: 20 }}
                     >
-                      {item.columns!.map((col) => (
+                      {item.columns.map((col) => (
                         <div
                           key={col.title}
                           className="mb-5"
@@ -137,6 +240,7 @@ export function Header() {
                                     "text-sm text-[#333] no-underline hover:text-[#a68a3a]",
                                     pathname === link.href && "text-[#a68a3a]"
                                   )}
+                                  onClick={() => setOpen(null)}
                                 >
                                   {link.label}
                                 </Link>
@@ -151,7 +255,7 @@ export function Header() {
                         className="mx-auto flex max-w-[1180px] items-center px-5"
                         style={{ borderTop: "1px solid #ccc", height: 50 }}
                       >
-                        <Link href={item.overview.href} className="text-sm no-underline text-brand-gold font-semibold uppercase tracking-wide">
+                        <Link href={item.overview.href} className="text-sm no-underline text-brand-gold font-semibold uppercase tracking-wide" onClick={() => setOpen(null)}>
                           {item.overview.label}
                         </Link>
                       </div>
@@ -174,31 +278,47 @@ export function Header() {
               <div className="font-display text-sm font-bold text-brand-navy mb-1">
                 {item.label}
               </div>
-              {item.columns ? (
-                item.columns.map((col) => (
-                  <div key={col.title} className="mb-2">
-                    <div className="text-xs uppercase text-brand-gold">{col.title}</div>
-                    {col.links.map((link) => (
-                      <Link
-                        key={link.href}
-                        href={link.href}
-                        className="block py-1 pl-3 text-sm text-brand-navy no-underline"
-                        onClick={() => setMobileOpen(false)}
-                      >
-                        {link.label}
-                      </Link>
-                    ))}
-                  </div>
-                ))
-              ) : (
-                <Link
-                  href={item.href!}
-                  className="block py-1 text-sm text-brand-navy no-underline"
-                  onClick={() => setMobileOpen(false)}
-                >
-                  {item.label}
-                </Link>
-              )}
+              {item.roomMenu
+                ? item.roomMenu.map((cat) => (
+                    <div key={cat.label} className="mb-2">
+                      <div className="text-xs uppercase text-brand-gold">{cat.label}</div>
+                      {cat.rooms.map((room) => (
+                        <Link
+                          key={room.slug}
+                          href={getRoomHref(room)}
+                          className="block py-1 pl-3 text-sm text-brand-navy no-underline"
+                          onClick={() => setMobileOpen(false)}
+                        >
+                          {room.title}
+                        </Link>
+                      ))}
+                    </div>
+                  ))
+                : item.columns
+                ? item.columns.map((col) => (
+                    <div key={col.title} className="mb-2">
+                      <div className="text-xs uppercase text-brand-gold">{col.title}</div>
+                      {col.links.map((link) => (
+                        <Link
+                          key={link.href}
+                          href={link.href}
+                          className="block py-1 pl-3 text-sm text-brand-navy no-underline"
+                          onClick={() => setMobileOpen(false)}
+                        >
+                          {link.label}
+                        </Link>
+                      ))}
+                    </div>
+                  ))
+                : (
+                  <Link
+                    href={item.href!}
+                    className="block py-1 text-sm text-brand-navy no-underline"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    {item.label}
+                  </Link>
+                )}
               {item.overview && (
                 <Link href={item.overview.href} className="block py-1 pl-3 text-sm font-semibold text-brand-gold no-underline" onClick={() => setMobileOpen(false)}>
                   {item.overview.label}
