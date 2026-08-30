@@ -16,6 +16,7 @@ export const PAGE_ROUTES = {
   guestLogin: "/login/",
   register: "/register/",
   guestLanding: "/",
+  guestAccount: "/account/",
   staffPortal: "/staff-portal/",
 } as const;
 

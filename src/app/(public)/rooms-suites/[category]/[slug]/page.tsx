@@ -6,6 +6,7 @@ import { RoomGallery } from "@/global/components/ui/RoomGallery";
 import { getAllRooms } from "@/data";
 import { getRoomHref, roomCategoryLabels } from "@/data/rooms";
 import { formatMoney } from "@/lib/formatters";
+import { buildBookingHref } from "@/domains/booking/params";
 
 export function generateStaticParams() {
   return getAllRooms().map((room) => ({
@@ -27,14 +28,31 @@ export async function generateMetadata({
 
 export default function RoomDetailPage({
   params,
+  searchParams,
 }: {
   params: { category: string; slug: string };
+  searchParams: { [key: string]: string | string[] | undefined };
 }) {
   const room = getAllRooms().find(
     (r) => r.slug === params.slug && r.category === params.category
   );
 
   if (!room || !(room.category in roomCategoryLabels)) notFound();
+
+  const pick = (key: string): string | undefined => {
+    const v = searchParams[key];
+    return Array.isArray(v) ? v[0] : v;
+  };
+
+  const bookHref = buildBookingHref({
+    room: room.slug,
+    checkIn: pick("checkIn"),
+    checkOut: pick("checkOut"),
+    rooms: pick("rooms"),
+    adults: pick("adults"),
+    children: pick("children"),
+    code: pick("code"),
+  });
 
   const categoryLabel = roomCategoryLabels[room.category];
   const siblings = getAllRooms().filter(
@@ -126,9 +144,15 @@ export default function RoomDetailPage({
                 )}
               </dl>
 
+              <Link
+                href={bookHref}
+                className="mt-6 block rounded bg-brand-gold py-3 text-center text-sm font-semibold text-white no-underline transition-colors hover:bg-brand-goldLight"
+              >
+                Book Now
+              </Link>
               <a
                 href="tel:+233240258378"
-                className="mt-6 block rounded bg-brand-gold py-3 text-center text-sm font-semibold text-white no-underline transition-colors hover:bg-brand-goldLight"
+                className="mt-3 block rounded border border-brand-gold py-3 text-center text-sm font-semibold text-brand-gold no-underline transition-colors hover:bg-brand-gold/10"
               >
                 Reserve by Phone
               </a>
