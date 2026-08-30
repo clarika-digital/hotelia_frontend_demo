@@ -14,6 +14,7 @@ export const PAGE_ROUTES = {
   guestLogin: "/login/",
   register: "/register/",
   guestLanding: "/",
+  staffPortal: "/staff-portal/",
 } as const;
 
 export const ROLE_LANDING: Record<string, string> = {

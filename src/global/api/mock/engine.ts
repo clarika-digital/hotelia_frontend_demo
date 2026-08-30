@@ -59,6 +59,57 @@ function problem(status: number, title: string, detail: string): MockResponse {
 
 const INVALID_REFRESH_DETAIL = "Session expired. Please sign in again.";
 
+interface MockLeaveRequest {
+  id: string;
+  type: "annual" | "sick" | "casual" | "unpaid";
+  startDate: string;
+  endDate: string;
+  days: number;
+  reason?: string;
+  status: "pending" | "approved" | "used";
+  submittedAt: string;
+}
+
+const INITIAL_LEAVE_REQUESTS: MockLeaveRequest[] = [
+  {
+    id: "L-1070",
+    type: "annual",
+    startDate: "2026-09-22",
+    endDate: "2026-09-26",
+    days: 5,
+    reason: "Family trip",
+    status: "pending",
+    submittedAt: "2026-08-24T12:10:00.000Z",
+  },
+  {
+    id: "L-1062",
+    type: "sick",
+    startDate: "2026-08-03",
+    endDate: "2026-08-03",
+    days: 1,
+    status: "used",
+    submittedAt: "2026-08-03T07:30:00.000Z",
+  },
+  {
+    id: "L-1041",
+    type: "annual",
+    startDate: "2026-06-16",
+    endDate: "2026-06-20",
+    days: 5,
+    status: "approved",
+    submittedAt: "2026-05-20T09:00:00.000Z",
+  },
+];
+
+const createdLeaveRequests = new Map<string, MockLeaveRequest[]>();
+
+function leaveStoreFor(user: MockUser): MockLeaveRequest[] {
+  if (!createdLeaveRequests.has(user.id)) {
+    createdLeaveRequests.set(user.id, [...INITIAL_LEAVE_REQUESTS]);
+  }
+  return createdLeaveRequests.get(user.id)!;
+}
+
 let refreshCounter = 0;
 const activeRefreshTokens = new Map<string, string>();
 const registeredGuests: MockUser[] = [];
@@ -303,6 +354,54 @@ export async function mockRequest(
       return problem(401, "Unauthorized", "Sign in to continue.");
     }
     return envelope(claimsOf(user));
+  }
+
+  if (path === "/v1/staff/leave/requests") {
+    const user = userFromAccessToken(bearer);
+    if (!user || user.userType !== "staff") {
+      return problem(401, "Unauthorized", "Sign in to continue.");
+    }
+
+    if (method === "GET") {
+      return envelope(leaveStoreFor(user));
+    }
+
+    if (method === "POST") {
+      const type = String(body.type ?? "");
+      const allowed = new Set(["annual", "sick", "casual", "unpaid"]);
+      if (!allowed.has(type)) {
+        return problem(
+          400,
+          "Invalid request",
+          "Leave type is required and must be one of annual, sick, casual or unpaid."
+        );
+      }
+      const startDate = String(body.startDate ?? "");
+      const endDate = String(body.endDate ?? "");
+      const reason = String(body.reason ?? "").trim();
+      const start = Date.parse(startDate);
+      const end = Date.parse(endDate);
+      if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) {
+        return problem(
+          400,
+          "Invalid request",
+          "Provide valid start and end dates (ISO), with the end on or after the start."
+        );
+      }
+      const days = Math.round((end - start) / 86_400_000) + 1;
+      const request: MockLeaveRequest = {
+        id: `L-${Date.now()}`,
+        type: type as MockLeaveRequest["type"],
+        startDate,
+        endDate,
+        days,
+        ...(reason ? { reason } : {}),
+        status: "pending",
+        submittedAt: new Date().toISOString(),
+      };
+      leaveStoreFor(user).unshift(request);
+      return envelope(request);
+    }
   }
 
   return problem(404, "Not found", `No mock handler for ${method} ${path}`);
