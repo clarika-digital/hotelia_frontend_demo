@@ -23,12 +23,18 @@ export interface MegaNavItem {
   label: string;
   href?: string;
   columns?: NavColumn[];
+  roomMenu?: RoomMenuCategory[];
   overview?: { label: string; href: string };
   roomMenu?: RoomMenuCategory[];
 }
 
 export interface RoomMenuCategory {
   label: string;
+  rooms: Room[];
+}
+
+export interface RoomMenuCategory {
+  title: string;
   rooms: Room[];
 }
 

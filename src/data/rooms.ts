@@ -1,5 +1,16 @@
 import type { Room } from "./types";
 
+export const roomCategoryLabels: Record<Room["category"], string> = {
+  rooms: "Rooms",
+  suites: "Suites",
+  "horizon-club": "Horizon Club",
+  connecting: "Connecting Rooms",
+};
+
+export function getRoomHref(room: Room): string {
+  return `/rooms-suites/${room.category}/${room.slug}/`;
+}
+
 export const rooms: Room[] = [
   {
     slug: "deluxe",
@@ -10,7 +21,7 @@ export const rooms: Room[] = [
       "/images/ghana/room-garden.jpg",
       "/images/ghana/room-deluxe.jpg",
       "/images/ghana/room-amenity.jpg",
-      "/images/ghana/banner-exterior.jpg",
+      "/images/ghana/banner-entrance.jpg",
     ],
     description: "Generous living space with garden views and premium amenities.",
     size: "40 sqm",
@@ -34,8 +45,8 @@ export const rooms: Room[] = [
     gallery: [
       "/images/ghana/room-premier.jpg",
       "/images/ghana/room-garden.jpg",
-      "/images/ghana/room-wide.jpg",
-      "/images/ghana/room-amenity.jpg",
+      "/images/ghana/room-deluxe.jpg",
+      "/images/ghana/banner-exterior.jpg",
     ],
     description: "Wake to lush garden panoramas through floor-to-ceiling windows.",
     size: "45 sqm",
@@ -59,8 +70,8 @@ export const rooms: Room[] = [
     gallery: [
       "/images/ghana/room-wide.jpg",
       "/images/ghana/room-premier.jpg",
-      "/images/ghana/room-deluxe.jpg",
       "/images/ghana/room-amenity.jpg",
+      "/images/ghana/hero-night.jpg",
     ],
     description: "Elevated space with separate living area and club lounge access.",
     size: "50 sqm",
@@ -83,9 +94,9 @@ export const rooms: Room[] = [
     image: "/images/ghana/room-premier.jpg",
     gallery: [
       "/images/ghana/room-premier.jpg",
-      "/images/ghana/room-wide.jpg",
+      "/images/ghana/room-deluxe.jpg",
+      "/images/ghana/room-garden.jpg",
       "/images/ghana/room-amenity.jpg",
-      "/images/ghana/banner-entrance.jpg",
     ],
     description:
       "Deluxe room with Horizon Club lounge, priority services and evening cocktails.",
@@ -110,7 +121,7 @@ export const rooms: Room[] = [
     gallery: [
       "/images/ghana/room-garden.jpg",
       "/images/ghana/room-premier.jpg",
-      "/images/ghana/room-amenity.jpg",
+      "/images/ghana/room-deluxe.jpg",
       "/images/ghana/banner-entrance.jpg",
     ],
     description: "Garden-facing deluxe with club benefits and private check-in.",
@@ -135,8 +146,8 @@ export const rooms: Room[] = [
     gallery: [
       "/images/ghana/room-premier.jpg",
       "/images/ghana/room-wide.jpg",
+      "/images/ghana/room-deluxe.jpg",
       "/images/ghana/hero-accra-skyline.jpg",
-      "/images/ghana/room-amenity.jpg",
     ],
     description: "Top-tier club room with butler service and panoramic city views.",
     size: "52 sqm",
@@ -160,8 +171,8 @@ export const rooms: Room[] = [
     gallery: [
       "/images/ghana/room-wide.jpg",
       "/images/ghana/room-premier.jpg",
-      "/images/ghana/room-amenity.jpg",
-      "/images/ghana/banner-exterior.jpg",
+      "/images/ghana/room-garden.jpg",
+      "/images/ghana/banner-entrance.jpg",
     ],
     description: "Separate living and dining areas with premium city views.",
     size: "70 sqm",
@@ -185,8 +196,8 @@ export const rooms: Room[] = [
     gallery: [
       "/images/ghana/room-garden.jpg",
       "/images/ghana/room-wide.jpg",
-      "/images/ghana/room-amenity.jpg",
-      "/images/ghana/banner-exterior.jpg",
+      "/images/ghana/room-premier.jpg",
+      "/images/ghana/offer-pool.jpg",
     ],
     description: "Expansive suite with kitchenette, marble bath and private terrace.",
     size: "85 sqm",
@@ -211,7 +222,7 @@ export const rooms: Room[] = [
       "/images/ghana/room-wide.jpg",
       "/images/ghana/room-premier.jpg",
       "/images/ghana/room-garden.jpg",
-      "/images/ghana/banner-exterior.jpg",
+      "/images/ghana/hero-accra-skyline.jpg",
     ],
     description:
       "Our signature suite with butler, panoramic views and bespoke furnishings.",
@@ -236,7 +247,7 @@ export const rooms: Room[] = [
     gallery: [
       "/images/ghana/hero-accra-skyline.jpg",
       "/images/ghana/room-wide.jpg",
-      "/images/ghana/room-amenity.jpg",
+      "/images/ghana/room-premier.jpg",
       "/images/ghana/banner-exterior.jpg",
     ],
     description:
@@ -281,17 +292,6 @@ export const rooms: Room[] = [
     ],
   },
 ];
-
-export const roomCategoryLabels: Record<Room["category"], string> = {
-  rooms: "Rooms",
-  "horizon-club": "Horizon Club",
-  suites: "Suites",
-  connecting: "Connecting Rooms",
-};
-
-export function getRoomHref(room: Pick<Room, "category" | "slug">): string {
-  return `/rooms-suites/${room.category}/${room.slug}/`;
-}
 
 export function getAllRooms(): Room[] {
   return rooms;

@@ -88,13 +88,13 @@ export const megaNav: MegaNavItem[] = [
   },
   {
     label: "Rooms & Suites",
-    overview: { label: "Rooms & Suites Overview", href: "/rooms-suites/" },
     roomMenu: [
-      { label: "Rooms", rooms: getRoomsByCategory("rooms") },
-      { label: "Horizon Club", rooms: getRoomsByCategory("horizon-club") },
-      { label: "Suites", rooms: getRoomsByCategory("suites") },
-      { label: "Connecting Rooms", rooms: getRoomsByCategory("connecting") },
+      { title: "Rooms", rooms: getRoomsByCategory("rooms") },
+      { title: "Horizon Club", rooms: getRoomsByCategory("horizon-club") },
+      { title: "Suites", rooms: getRoomsByCategory("suites") },
+      { title: "Connecting Rooms", rooms: getRoomsByCategory("connecting") },
     ],
+    overview: { label: "Rooms & Suites Overview", href: "/rooms-suites/" },
   },
   {
     label: "Dining",
