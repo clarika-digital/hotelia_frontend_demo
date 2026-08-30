@@ -1,11 +1,13 @@
 import Link from "next/link";
 import type { DiningVenue, Offer, Room, Story } from "@/data/types";
+import { getDiningHref } from "@/data/dining";
+import { getRoomHref } from "@/data/rooms";
 import { formatDate, formatMoney } from "@/lib/formatters";
 
 export function RoomCard({ room }: { room: Room }) {
   return (
     <Link
-      href={`/rooms-suites/${room.category}/${room.slug}/`}
+      href={getRoomHref(room)}
       className="group overflow-hidden rounded bg-white shadow hover:shadow-lg transition-shadow no-underline"
     >
       <div className="aspect-[4/3] overflow-hidden bg-surface-muted">
@@ -33,7 +35,7 @@ export function RoomCard({ room }: { room: Room }) {
 export function DiningCard({ venue }: { venue: DiningVenue }) {
   return (
     <Link
-      href={`/dining/${venue.type === "restaurant" ? "restaurants" : venue.type === "bar" ? "bars-lounges" : "bars-lounges"}/${venue.slug}/`}
+      href={getDiningHref(venue)}
       className="group overflow-hidden rounded bg-white shadow hover:shadow-lg transition-shadow no-underline"
     >
       <div className="aspect-[4/3] overflow-hidden bg-surface-muted">

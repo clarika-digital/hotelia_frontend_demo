@@ -87,6 +87,21 @@ h4 {
   animation: gallery-fade 0.25s ease-out;
 }
 
+/* ===== Mega-nav panel animation ===== */
+@keyframes nav-panel {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-nav-panel {
+  animation: nav-panel 0.18s ease-out;
+}
+
 /* ===== Hero slider (matches static homepage) ===== */
 .hero-slider {
   position: relative;

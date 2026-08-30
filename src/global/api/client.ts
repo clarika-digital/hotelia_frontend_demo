@@ -1,4 +1,7 @@
 import type { ApiEnvelope } from "@/global/types";
+import { useSessionStore } from "@/stores/session-store";
+import { AUTH_ROUTES } from "@/domains/auth/constants";
+import type { TokenPair } from "@/domains/auth/types";
 
 export class ApiError extends Error {
   status: number;
@@ -17,49 +20,163 @@ export class ApiError extends Error {
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 const API_MODE = process.env.NEXT_PUBLIC_API_MODE ?? "live";
 
-async function request<T>(
-  path: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers ?? {}),
-    },
-  });
+export const API_MODE_MOCK = API_MODE === "mock";
 
-  const body = (await res.json().catch(() => null)) as ApiEnvelope<T> | null;
-
-  if (!res.ok || body?.error) {
-    throw new ApiError(
-      body?.error?.status ?? res.status,
-      body?.error?.title ?? res.statusText,
-      body?.error?.detail
-    );
+export function idempotencyKey(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
   }
-
-  return body?.data as T;
+  return `idem-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-export async function get<T>(path: string, options?: RequestInit): Promise<T> {
+interface ApiResponse {
+  ok: boolean;
+  status: number;
+  statusText: string;
+  headers: { get(name: string): string | null };
+  json(): Promise<unknown>;
+}
+
+interface RequestOptions {
+  method?: string;
+  body?: unknown;
+  headers?: Record<string, string>;
+  skipAuth?: boolean;
+  skipRefresh?: boolean;
+  idempotency?: boolean;
+  idempotencyKey?: string;
+}
+
+interface ProblemDetails {
+  title?: string;
+  detail?: string;
+  status?: number;
+}
+
+function isProblem(payload: unknown): payload is ProblemDetails {
+  return typeof payload === "object" && payload !== null && "title" in payload;
+}
+
+async function send(path: string, options: RequestOptions): Promise<ApiResponse> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options.headers ?? {}),
+  };
+
+  const token = useSessionStore.getState().accessToken;
+  if (!options.skipAuth && token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  if (options.idempotency) {
+    headers["Idempotency-Key"] = options.idempotencyKey ?? idempotencyKey();
+  }
+
+  if (API_MODE_MOCK) {
+    const { mockRequest } = await import("./mock/engine");
+    return mockRequest(path, {
+      method: options.method,
+      body: options.body,
+      headers,
+    });
+  }
+
+  return fetch(`${BASE_URL}${path}`, {
+    method: options.method,
+    headers,
+    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+  });
+}
+
+let refreshPromise: Promise<boolean> | null = null;
+
+function tryRefresh(): Promise<boolean> {
+  const { refreshToken, setTokens, clear } = useSessionStore.getState();
+  if (!refreshToken) return Promise.resolve(false);
+
+  if (!refreshPromise) {
+    refreshPromise = request<TokenPair>(AUTH_ROUTES.refresh, {
+      method: "POST",
+      body: { refreshToken },
+      skipAuth: true,
+      skipRefresh: true,
+    })
+      .then((tokens) => {
+        setTokens(tokens);
+        return true;
+      })
+      .catch(() => {
+        clear();
+        return false;
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+
+  return refreshPromise;
+}
+
+async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  let res = await send(path, options);
+
+  if (res.status === 401 && !options.skipRefresh) {
+    const refreshed = await tryRefresh();
+    if (refreshed) {
+      res = await send(path, options);
+    }
+  }
+
+  const contentType = res.headers.get("content-type") ?? "";
+  const payload = (await res.json().catch(() => null)) as unknown;
+
+  if (!res.ok) {
+    if (contentType.includes("application/problem+json") && isProblem(payload)) {
+      throw new ApiError(
+        payload.status ?? res.status,
+        payload.title ?? (res.statusText || "Request failed"),
+        payload.detail
+      );
+    }
+    if (typeof payload === "object" && payload !== null && "error" in payload) {
+      const envelope = payload as ApiEnvelope;
+      if (envelope.error) {
+        throw new ApiError(
+          envelope.error.status,
+          envelope.error.title,
+          envelope.error.detail
+        );
+      }
+    }
+    throw new ApiError(res.status, res.statusText || "Request failed");
+  }
+
+  if (
+    typeof payload === "object" &&
+    payload !== null &&
+    "data" in payload &&
+    "error" in payload
+  ) {
+    return (payload as ApiEnvelope<T>).data;
+  }
+
+  return payload as T;
+}
+
+export async function get<T>(path: string, options?: RequestOptions): Promise<T> {
   return request<T>(path, { ...options, method: "GET" });
 }
 
 export async function post<T, B = unknown>(
   path: string,
   body: B,
-  options?: RequestInit
+  options?: RequestOptions
 ): Promise<T> {
-  return request<T>(path, {
-    ...options,
-    method: "POST",
-    body: JSON.stringify(body),
-  });
+  return request<T>(path, { ...options, method: "POST", body });
 }
 
 export const client = {
   mode: API_MODE,
+  mock: API_MODE_MOCK,
   get,
   post,
 };

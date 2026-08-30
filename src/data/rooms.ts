@@ -1,11 +1,28 @@
 import type { Room } from "./types";
 
+export const roomCategoryLabels: Record<Room["category"], string> = {
+  rooms: "Rooms",
+  suites: "Suites",
+  "horizon-club": "Horizon Club",
+  connecting: "Connecting Rooms",
+};
+
+export function getRoomHref(room: Room): string {
+  return `/rooms-suites/${room.category}/${room.slug}/`;
+}
+
 export const rooms: Room[] = [
   {
     slug: "deluxe",
     title: "Deluxe Room",
     category: "rooms",
     image: "/images/ghana/room-garden.jpg",
+    gallery: [
+      "/images/ghana/room-garden.jpg",
+      "/images/ghana/room-deluxe.jpg",
+      "/images/ghana/room-amenity.jpg",
+      "/images/ghana/banner-entrance.jpg",
+    ],
     description: "Generous living space with garden views and premium amenities.",
     size: "40 sqm",
     bed: "King or Twin",
@@ -25,6 +42,12 @@ export const rooms: Room[] = [
     title: "Deluxe Imperial Garden View",
     category: "rooms",
     image: "/images/ghana/room-premier.jpg",
+    gallery: [
+      "/images/ghana/room-premier.jpg",
+      "/images/ghana/room-garden.jpg",
+      "/images/ghana/room-deluxe.jpg",
+      "/images/ghana/banner-exterior.jpg",
+    ],
     description: "Wake to lush garden panoramas through floor-to-ceiling windows.",
     size: "45 sqm",
     bed: "King or Twin",
@@ -44,6 +67,12 @@ export const rooms: Room[] = [
     title: "Premier Room",
     category: "rooms",
     image: "/images/ghana/room-wide.jpg",
+    gallery: [
+      "/images/ghana/room-wide.jpg",
+      "/images/ghana/room-premier.jpg",
+      "/images/ghana/room-amenity.jpg",
+      "/images/ghana/hero-night.jpg",
+    ],
     description: "Elevated space with separate living area and club lounge access.",
     size: "50 sqm",
     bed: "King",
@@ -63,6 +92,12 @@ export const rooms: Room[] = [
     title: "Horizon Club Deluxe",
     category: "horizon-club",
     image: "/images/ghana/room-premier.jpg",
+    gallery: [
+      "/images/ghana/room-premier.jpg",
+      "/images/ghana/room-deluxe.jpg",
+      "/images/ghana/room-garden.jpg",
+      "/images/ghana/room-amenity.jpg",
+    ],
     description:
       "Deluxe room with Horizon Club lounge, priority services and evening cocktails.",
     size: "42 sqm",
@@ -83,6 +118,12 @@ export const rooms: Room[] = [
     title: "Horizon Club Deluxe Garden View",
     category: "horizon-club",
     image: "/images/ghana/room-garden.jpg",
+    gallery: [
+      "/images/ghana/room-garden.jpg",
+      "/images/ghana/room-premier.jpg",
+      "/images/ghana/room-deluxe.jpg",
+      "/images/ghana/banner-entrance.jpg",
+    ],
     description: "Garden-facing deluxe with club benefits and private check-in.",
     size: "45 sqm",
     bed: "King or Twin",
@@ -102,6 +143,12 @@ export const rooms: Room[] = [
     title: "Horizon Club Premier",
     category: "horizon-club",
     image: "/images/ghana/room-premier.jpg",
+    gallery: [
+      "/images/ghana/room-premier.jpg",
+      "/images/ghana/room-wide.jpg",
+      "/images/ghana/room-deluxe.jpg",
+      "/images/ghana/hero-accra-skyline.jpg",
+    ],
     description: "Top-tier club room with butler service and panoramic city views.",
     size: "52 sqm",
     bed: "King",
@@ -121,6 +168,12 @@ export const rooms: Room[] = [
     title: "Executive Suite",
     category: "suites",
     image: "/images/ghana/room-wide.jpg",
+    gallery: [
+      "/images/ghana/room-wide.jpg",
+      "/images/ghana/room-premier.jpg",
+      "/images/ghana/room-garden.jpg",
+      "/images/ghana/banner-entrance.jpg",
+    ],
     description: "Separate living and dining areas with premium city views.",
     size: "70 sqm",
     bed: "King",
@@ -140,6 +193,12 @@ export const rooms: Room[] = [
     title: "Premier Suite",
     category: "suites",
     image: "/images/ghana/room-garden.jpg",
+    gallery: [
+      "/images/ghana/room-garden.jpg",
+      "/images/ghana/room-wide.jpg",
+      "/images/ghana/room-premier.jpg",
+      "/images/ghana/offer-pool.jpg",
+    ],
     description: "Expansive suite with kitchenette, marble bath and private terrace.",
     size: "85 sqm",
     bed: "King",
@@ -159,6 +218,12 @@ export const rooms: Room[] = [
     title: "Hotelia Suite",
     category: "suites",
     image: "/images/ghana/room-wide.jpg",
+    gallery: [
+      "/images/ghana/room-wide.jpg",
+      "/images/ghana/room-premier.jpg",
+      "/images/ghana/room-garden.jpg",
+      "/images/ghana/hero-accra-skyline.jpg",
+    ],
     description:
       "Our signature suite with butler, panoramic views and bespoke furnishings.",
     size: "110 sqm",
@@ -179,6 +244,12 @@ export const rooms: Room[] = [
     title: "Presidential Suite",
     category: "suites",
     image: "/images/ghana/hero-accra-skyline.jpg",
+    gallery: [
+      "/images/ghana/hero-accra-skyline.jpg",
+      "/images/ghana/room-wide.jpg",
+      "/images/ghana/room-premier.jpg",
+      "/images/ghana/banner-exterior.jpg",
+    ],
     description:
       "The pinnacle of luxury — private dining, study, and 270-degree views.",
     size: "160 sqm",
@@ -199,6 +270,12 @@ export const rooms: Room[] = [
     title: "Two Deluxe Rooms Inter-Connecting",
     category: "connecting",
     image: "/images/ghana/room-wide.jpg",
+    gallery: [
+      "/images/ghana/room-wide.jpg",
+      "/images/ghana/room-deluxe.jpg",
+      "/images/ghana/room-garden.jpg",
+      "/images/ghana/room-amenity.jpg",
+    ],
     description:
       "Two spacious Deluxe Rooms joined by a connecting door — ideal for families.",
     size: "80 sqm (combined)",

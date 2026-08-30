@@ -1,0 +1,24 @@
+export const AUTH_ROUTES = {
+  staffLogin: "/v1/auth/staff/login",
+  guestLogin: "/v1/auth/guest/login",
+  refresh: "/v1/auth/refresh",
+  logout: "/v1/auth/logout",
+  me: "/v1/auth/session/me",
+} as const;
+
+export const PAGE_ROUTES = {
+  staffLogin: "/login/",
+  guestLogin: "/auth/login/",
+  guestLanding: "/",
+} as const;
+
+export const ROLE_LANDING: Record<string, string> = {
+  front_desk: "/front-desk/",
+  accountant: "/accountant/",
+  housekeeping: "/housekeeping/",
+  maintenance: "/maintenance/",
+  manager: "/manager/",
+  it_manager: "/it/",
+  executive: "/executive/",
+  super_admin: "/superadmin/",
+};

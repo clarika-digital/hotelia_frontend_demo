@@ -50,3 +50,13 @@ export function getDiningVenueBySlug(slug: string): DiningVenue | undefined {
 export function getDiningByType(type: DiningVenue["type"]): DiningVenue[] {
   return diningVenues.filter((v) => v.type === type);
 }
+
+export function getDiningHref(venue: DiningVenue): string {
+  const area = venue.type === "restaurant" ? "restaurants" : "bars-lounges";
+  return `/dining/${area}/${venue.slug}/`;
+}
+
+export const diningAreaLabels: Record<string, string> = {
+  restaurants: "Restaurants",
+  "bars-lounges": "Bars & Lounges",
+};
