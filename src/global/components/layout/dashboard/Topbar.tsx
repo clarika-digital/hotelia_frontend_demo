@@ -48,11 +48,59 @@ const USER_MENU: UserMenuEntry[] = [
   { label: "Inbox", icon: "inbox" },
 ];
 
+function ConsoleSwitcher({
+  isPortal,
+  meta,
+  onNavigate,
+}: {
+  isPortal: boolean;
+  meta: StaffRoleMeta | null;
+  onNavigate: () => void;
+}) {
+  const opsHref = isPortal
+    ? (meta?.backTo?.href ?? PAGE_ROUTES.guestLanding)
+    : PAGE_ROUTES.guestLanding;
+  return (
+    <nav
+      aria-label="Console"
+      className="hidden items-center gap-0.5 self-center rounded-full border border-gray-200 bg-surface-muted p-0.5 md:flex"
+    >
+      <Link
+        href={opsHref}
+        onClick={onNavigate}
+        aria-current={isPortal ? undefined : "page"}
+        className={cn(
+          "rounded-full px-3 py-1.5 text-xs font-semibold no-underline transition-colors",
+          isPortal
+            ? "text-gray-500 hover:text-brand-navy"
+            : "bg-brand-navy text-white"
+        )}
+      >
+        Operations
+      </Link>
+      <Link
+        href={PAGE_ROUTES.staffPortal}
+        onClick={onNavigate}
+        aria-current={isPortal ? "page" : undefined}
+        className={cn(
+          "rounded-full px-3 py-1.5 text-xs font-semibold no-underline transition-colors",
+          isPortal
+            ? "bg-brand-navy text-white"
+            : "text-gray-500 hover:text-brand-navy"
+        )}
+      >
+        Staff Portal
+      </Link>
+    </nav>
+  );
+}
+
 interface TopbarProps {
   meta: StaffRoleMeta | null;
   userName?: string;
   signingOut: boolean;
   onSignOut: () => void;
+  onLock: () => void;
   onOpenMenu: () => void;
   showPortal: boolean;
   isPortal: boolean;
@@ -63,6 +111,7 @@ export function Topbar({
   userName,
   signingOut,
   onSignOut,
+  onLock,
   onOpenMenu,
   showPortal,
   isPortal,
@@ -111,9 +160,21 @@ export function Topbar({
           <span className="text-gray-300">/</span>{" "}
           <span className="font-normal text-gray-500">{meta?.label ?? "Staff"}</span>
         </span>
+        {showPortal && (
+          <ConsoleSwitcher isPortal={isPortal} meta={meta} onNavigate={closeAll} />
+        )}
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3">
+        <button
+          type="button"
+          onClick={onLock}
+          aria-label="Lock session"
+          title="Lock session"
+          className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-surface-muted hover:text-brand-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/40"
+        >
+          <Icon name="lock" className="h-5 w-5" />
+        </button>
         <div className="relative">
           <button
             type="button"

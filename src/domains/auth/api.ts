@@ -53,3 +53,23 @@ export async function logout(): Promise<void> {
 export function fetchSession(): Promise<SessionClaims> {
   return client.get<SessionClaims>(AUTH_ROUTES.me);
 }
+
+export interface SessionLockState {
+  locked: boolean;
+  lockedAt?: string;
+  unlockedAt?: string;
+}
+
+export async function lockSession(): Promise<SessionLockState> {
+  return client.post<SessionLockState, Record<string, never>>(
+    AUTH_ROUTES.sessionLock,
+    {}
+  );
+}
+
+export async function unlockSession(pin: string): Promise<SessionLockState> {
+  return client.post<SessionLockState, { pin: string }>(
+    AUTH_ROUTES.sessionUnlock,
+    { pin }
+  );
+}

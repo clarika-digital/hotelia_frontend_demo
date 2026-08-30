@@ -110,6 +110,25 @@ function leaveStoreFor(user: MockUser): MockLeaveRequest[] {
   return createdLeaveRequests.get(user.id)!;
 }
 
+interface MockAuditEvent {
+  event: "session.lock" | "session.unlock" | "session.expire";
+  at: string;
+}
+
+interface MockSessionState {
+  locked: boolean;
+  audit: MockAuditEvent[];
+}
+
+const userSessions = new Map<string, MockSessionState>();
+
+function sessionStateFor(user: MockUser): MockSessionState {
+  if (!userSessions.has(user.id)) {
+    userSessions.set(user.id, { locked: false, audit: [] });
+  }
+  return userSessions.get(user.id)!;
+}
+
 let refreshCounter = 0;
 const activeRefreshTokens = new Map<string, string>();
 const registeredGuests: MockUser[] = [];
@@ -354,6 +373,36 @@ export async function mockRequest(
       return problem(401, "Unauthorized", "Sign in to continue.");
     }
     return envelope(claimsOf(user));
+  }
+
+  if (path === "/v1/auth/session/lock") {
+    const user = userFromAccessToken(bearer);
+    if (!user || user.userType !== "staff") {
+      return problem(401, "Unauthorized", "Sign in to continue.");
+    }
+    const state = sessionStateFor(user);
+    state.locked = true;
+    state.audit.push({ event: "session.lock", at: new Date().toISOString() });
+    return envelope({ locked: true, lockedAt: new Date().toISOString() });
+  }
+
+  if (path === "/v1/auth/session/unlock") {
+    const user = userFromAccessToken(bearer);
+    if (!user || user.userType !== "staff") {
+      return problem(401, "Unauthorized", "Sign in to continue.");
+    }
+    const pin = String(body.pin ?? "");
+    if (!pin || user.pin !== pin) {
+      return problem(
+        401,
+        "Invalid PIN",
+        "Enter the correct staff PIN to resume your session."
+      );
+    }
+    const state = sessionStateFor(user);
+    state.locked = false;
+    state.audit.push({ event: "session.unlock", at: new Date().toISOString() });
+    return envelope({ locked: false, unlockedAt: new Date().toISOString() });
   }
 
   if (path === "/v1/staff/leave/requests") {

@@ -3,22 +3,38 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { staffPortalMeta, staffRoleMeta } from "@/data/staff-nav";
-import { logout } from "@/domains/auth/api";
+import { lockSession, logout } from "@/domains/auth/api";
 import { PAGE_ROUTES } from "@/domains/auth/constants";
+import { useIdleLock } from "@/global/hooks/useIdleLock";
 import { cn } from "@/lib/cn";
 import { useSessionStore } from "@/stores/session-store";
+import { IdleLockOverlay } from "./IdleLockOverlay";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 
 const COLLAPSE_KEY = "hotelia.staff.sidebar.collapsed";
 
+const IDLE_LOCK_MS: Record<string, number> = {
+  front_desk: 60_000,
+  housekeeping: 120_000,
+  accountant: 300_000,
+  maintenance: 300_000,
+  manager: 300_000,
+  it_manager: 300_000,
+  executive: 600_000,
+  super_admin: 600_000,
+};
+
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const claims = useSessionStore((s) => s.claims);
+  const status = useSessionStore((s) => s.status);
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+
+  const locked = status === "locked";
 
   useEffect(() => {
     try {
@@ -40,6 +56,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     window.scrollTo(0, 0);
   }, [pathname]);
 
+  useIdleLock(
+    IDLE_LOCK_MS[claims?.role ?? ""] ?? IDLE_LOCK_MS.front_desk,
+    handleLock,
+    !locked
+  );
+
   const PORTAL_BASE = PAGE_ROUTES.staffPortal.replace(/\/+$/, "");
   const path = pathname.replace(/\/+$/, "");
   const isPortal = path === PORTAL_BASE || path.startsWith(`${PORTAL_BASE}/`);
@@ -48,6 +70,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     : staffRoleMeta(claims?.role);
   const showPortal = claims?.role !== "super_admin";
   const sidebarKey = isPortal ? "staff-portal" : `ops-${claims?.role ?? "unknown"}`;
+
+  function handleLock() {
+    void lockSession().catch(() => {});
+    useSessionStore.getState().lock();
+  }
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -103,6 +130,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           userName={claims?.name}
           signingOut={signingOut}
           onSignOut={handleSignOut}
+          onLock={handleLock}
           onOpenMenu={() => setMobileOpen(true)}
           showPortal={showPortal}
           isPortal={isPortal}
@@ -112,6 +140,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+
+      <IdleLockOverlay open={locked} />
     </div>
   );
 }

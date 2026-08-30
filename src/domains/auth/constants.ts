@@ -6,6 +6,8 @@ export const AUTH_ROUTES = {
   refresh: "/v1/auth/refresh",
   logout: "/v1/auth/logout",
   me: "/v1/auth/session/me",
+  sessionLock: "/v1/auth/session/lock",
+  sessionUnlock: "/v1/auth/session/unlock",
 } as const;
 
 export const PAGE_ROUTES = {
