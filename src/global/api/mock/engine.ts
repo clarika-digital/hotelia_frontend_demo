@@ -60,6 +60,7 @@ const INVALID_REFRESH_DETAIL = "Session expired. Please sign in again.";
 
 let refreshCounter = 0;
 const activeRefreshTokens = new Map<string, string>();
+const registeredGuests: MockUser[] = [];
 
 function claimsOf(user: MockUser) {
   return {
@@ -120,6 +121,90 @@ export async function mockRequest(
   const method = (options.method ?? "GET").toUpperCase();
   const body = (options.body ?? {}) as Record<string, unknown>;
   const bearer = bearerToken(options.headers);
+
+  if (method === "POST" && path === "/v1/auth/login") {
+    const username = String(body.username ?? "").trim().toLowerCase();
+    const staffUser = STAFF_USERS.find(
+      (u) =>
+        u.email.toLowerCase() === username ||
+        (u.pin ?? "").toLowerCase() === username
+    );
+    if (staffUser) {
+      if (staffUser.password !== body.password) {
+        return problem(
+          401,
+          "Invalid credentials",
+          "Username or password is incorrect."
+        );
+      }
+      if (!staffUser.geofenceVerified) {
+        return problem(
+          403,
+          "Geofence violation",
+          "On-premise access required for this account. Connect from the property network or request a whitelist exemption."
+        );
+      }
+      return envelope({ tokens: mintTokens(staffUser), user: claimsOf(staffUser) });
+    }
+
+    const guestUser = [...GUEST_USERS, ...registeredGuests].find(
+      (u) => u.email.toLowerCase() === username || u.phone === body.username
+    );
+    if (guestUser) {
+      if (guestUser.password !== body.password) {
+        return problem(
+          401,
+          "Invalid credentials",
+          "Email or phone and password do not match our records."
+        );
+      }
+      return envelope({ tokens: mintTokens(guestUser), user: claimsOf(guestUser) });
+    }
+
+    return problem(
+      401,
+      "Invalid credentials",
+      "We could not find an account with those details."
+    );
+  }
+
+  if (method === "POST" && path === "/v1/auth/guest/register") {
+    const name = String(body.name ?? "").trim();
+    const email = String(body.email ?? "").trim().toLowerCase();
+    const phone = String(body.phone ?? "").trim();
+    const password = String(body.password ?? "");
+    if (!name || !email || !phone || !password) {
+      return problem(
+        400,
+        "Missing fields",
+        "Name, email, phone and password are required."
+      );
+    }
+    const allGuests = [...GUEST_USERS, ...registeredGuests];
+    if (
+      allGuests.some(
+        (u) => u.email.toLowerCase() === email || u.phone === phone
+      )
+    ) {
+      return problem(
+        409,
+        "Account exists",
+        "An account with that email or phone already exists."
+      );
+    }
+    const user: MockUser = {
+      id: `guest-${Date.now()}`,
+      userType: "guest",
+      name,
+      email,
+      phone,
+      password,
+      permissions: ["bookings.own.read", "profile.own.manage", "export.own.request"],
+      geofenceVerified: true,
+    };
+    registeredGuests.push(user);
+    return envelope({ user: claimsOf(user) });
+  }
 
   if (method === "POST" && path === "/v1/auth/staff/login") {
     const email = String(body.email ?? "").trim().toLowerCase();

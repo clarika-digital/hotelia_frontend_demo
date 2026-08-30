@@ -1,5 +1,17 @@
 export type UserType = "guest" | "staff";
 
+export interface LoginRequest {
+  username: string;
+  password: string;
+}
+
+export interface GuestRegisterRequest {
+  name: string;
+  email: string;
+  phone: string;
+  password: string;
+}
+
 export interface StaffLoginRequest {
   email: string;
   password: string;
@@ -28,5 +40,9 @@ export interface SessionClaims {
 
 export interface LoginResponse {
   tokens: TokenPair;
+  user: SessionClaims;
+}
+
+export interface RegisterResponse {
   user: SessionClaims;
 }

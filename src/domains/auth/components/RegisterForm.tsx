@@ -3,29 +3,39 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { guestLogin } from "@/domains/auth/api";
+import { registerGuest } from "@/domains/auth/api";
 import { PAGE_ROUTES } from "@/domains/auth/constants";
-import { ApiError, client } from "@/global/api/client";
+import { ApiError } from "@/global/api/client";
 
-export function GuestLoginForm() {
+export function RegisterForm() {
   const router = useRouter();
-  const [identifier, setIdentifier] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<{ title: string; detail?: string } | null>(
     null
   );
   const [submitting, setSubmitting] = useState(false);
 
+  function handleBack() {
+    if (window.history.length > 1) {
+      router.back();
+    } else {
+      router.push(PAGE_ROUTES.guestLanding);
+    }
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
     try {
-      await guestLogin({ identifier, password });
-      router.push(PAGE_ROUTES.guestLanding);
+      await registerGuest({ name, email, phone, password });
+      router.push(PAGE_ROUTES.login);
     } catch (err) {
       setError({
-        title: err instanceof ApiError ? err.title : "Sign in failed",
+        title: err instanceof ApiError ? err.title : "Registration failed",
         detail: err instanceof ApiError ? err.detail : undefined,
       });
     } finally {
@@ -34,12 +44,20 @@ export function GuestLoginForm() {
   }
 
   return (
-    <div className="w-full max-w-md rounded bg-white p-10 shadow-lg">
+    <div className="w-full rounded bg-white p-10 shadow-lg">
+      <button
+        type="button"
+        onClick={handleBack}
+        className="mb-6 inline-flex items-center gap-1.5 text-sm font-semibold text-gray-500 no-underline transition-colors hover:text-brand-gold"
+      >
+        <span aria-hidden>&larr;</span> Back
+      </button>
+
       <h1 className="text-center font-display text-3xl text-brand-navy">
-        Guest Sign In
+        Create an Account
       </h1>
       <p className="mt-2 text-center text-sm text-gray-500">
-        Sign in with the email or phone number used for your booking.
+        Register to manage your bookings, preferences and more.
       </p>
 
       {error && (
@@ -57,36 +75,71 @@ export function GuestLoginForm() {
       <form onSubmit={onSubmit} className="mt-6 space-y-4">
         <div>
           <label
-            htmlFor="guest-identifier"
+            htmlFor="reg-name"
             className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500"
           >
-            Email or Phone
+            Full Name
           </label>
           <input
-            id="guest-identifier"
+            id="reg-name"
             type="text"
             required
-            value={identifier}
-            onChange={(e) => setIdentifier(e.target.value)}
+            autoComplete="name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
             className="w-full rounded border border-gray-300 px-4 py-3 text-sm text-brand-navy outline-none focus:border-brand-gold"
-            autoComplete="username"
           />
         </div>
         <div>
           <label
-            htmlFor="guest-password"
+            htmlFor="reg-email"
+            className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500"
+          >
+            Email
+          </label>
+          <input
+            id="reg-email"
+            type="email"
+            required
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full rounded border border-gray-300 px-4 py-3 text-sm text-brand-navy outline-none focus:border-brand-gold"
+          />
+        </div>
+        <div>
+          <label
+            htmlFor="reg-phone"
+            className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500"
+          >
+            Phone
+          </label>
+          <input
+            id="reg-phone"
+            type="tel"
+            required
+            autoComplete="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            className="w-full rounded border border-gray-300 px-4 py-3 text-sm text-brand-navy outline-none focus:border-brand-gold"
+          />
+        </div>
+        <div>
+          <label
+            htmlFor="reg-password"
             className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500"
           >
             Password
           </label>
           <input
-            id="guest-password"
+            id="reg-password"
             type="password"
             required
+            minLength={8}
+            autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="w-full rounded border border-gray-300 px-4 py-3 text-sm text-brand-navy outline-none focus:border-brand-gold"
-            autoComplete="current-password"
           />
         </div>
 
@@ -95,22 +148,14 @@ export function GuestLoginForm() {
           disabled={submitting}
           className="w-full rounded bg-brand-gold px-6 py-3 font-semibold text-white transition-colors hover:bg-brand-goldLight disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {submitting ? "Signing in…" : "Sign In"}
+          {submitting ? "Creating account…" : "Create Account"}
         </button>
       </form>
 
-      {client.mock && (
-        <div className="mt-6 rounded bg-surface-muted px-4 py-3 text-xs leading-relaxed text-gray-500">
-          <strong className="text-brand-navy">Demo account</strong> —
-          guest@hotelia.test (or +233201234567) &middot; password{" "}
-          <code>guest123</code>.
-        </div>
-      )}
-
       <p className="mt-6 text-center text-sm text-gray-500">
-        Staff member?{" "}
+        Already registered?{" "}
         <Link
-          href={PAGE_ROUTES.staffLogin}
+          href={PAGE_ROUTES.login}
           className="font-semibold text-brand-gold no-underline hover:underline"
         >
           Sign in here

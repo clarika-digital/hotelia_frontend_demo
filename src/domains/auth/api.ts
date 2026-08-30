@@ -2,7 +2,10 @@ import { client } from "@/global/api/client";
 import { useSessionStore } from "@/stores/session-store";
 import type {
   GuestLoginRequest,
+  GuestRegisterRequest,
+  LoginRequest,
   LoginResponse,
+  RegisterResponse,
   SessionClaims,
   StaffLoginRequest,
 } from "./types";
@@ -17,12 +20,26 @@ async function startSession<B>(
   return res.user;
 }
 
+export function login(req: LoginRequest): Promise<SessionClaims> {
+  return startSession(AUTH_ROUTES.login, req);
+}
+
 export function staffLogin(req: StaffLoginRequest): Promise<SessionClaims> {
   return startSession(AUTH_ROUTES.staffLogin, req);
 }
 
 export function guestLogin(req: GuestLoginRequest): Promise<SessionClaims> {
   return startSession(AUTH_ROUTES.guestLogin, req);
+}
+
+export async function registerGuest(
+  req: GuestRegisterRequest
+): Promise<SessionClaims> {
+  const res = await client.post<RegisterResponse, GuestRegisterRequest>(
+    AUTH_ROUTES.register,
+    req
+  );
+  return res.user;
 }
 
 export async function logout(): Promise<void> {

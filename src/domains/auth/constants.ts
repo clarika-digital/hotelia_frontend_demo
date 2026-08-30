@@ -1,14 +1,18 @@
 export const AUTH_ROUTES = {
+  login: "/v1/auth/login",
   staffLogin: "/v1/auth/staff/login",
   guestLogin: "/v1/auth/guest/login",
+  register: "/v1/auth/guest/register",
   refresh: "/v1/auth/refresh",
   logout: "/v1/auth/logout",
   me: "/v1/auth/session/me",
 } as const;
 
 export const PAGE_ROUTES = {
+  login: "/login/",
   staffLogin: "/login/",
-  guestLogin: "/auth/login/",
+  guestLogin: "/login/",
+  register: "/register/",
   guestLanding: "/",
 } as const;
 
