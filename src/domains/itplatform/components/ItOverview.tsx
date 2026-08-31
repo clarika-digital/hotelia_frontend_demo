@@ -35,8 +35,8 @@ function SessionRow({
   busy: boolean;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2">
-      <div className="min-w-0 flex-1">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2">
+      <div className="min-w-0 flex-1 basis-48">
         <p className="truncate text-xs font-semibold text-brand-navy">
           {s.user} · {s.role}
         </p>
@@ -44,7 +44,7 @@ function SessionRow({
           {s.device} · {s.os} · {s.ip} · {s.country} · {lastActiveLabel(s.lastActive)}
         </p>
       </div>
-      <div className="flex-none">
+      <div>
         <StatusBadge tone={GEOFENCE_TONE[s.geofence]}>{s.geofence}</StatusBadge>
       </div>
       {s.geofence === "verified" && (
@@ -52,7 +52,7 @@ function SessionRow({
           type="button"
           disabled={busy}
           onClick={() => onAct(s.id, "session", "terminate")}
-          className="flex-none rounded-md bg-red-600 px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+          className="rounded-md bg-red-600 px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
         >
           Terminate
         </button>
@@ -71,12 +71,12 @@ function KioskRow({
   busy: boolean;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2">
-      <div className="min-w-0 flex-1">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2">
+      <div className="min-w-0 flex-1 basis-40">
         <p className="truncate text-xs font-semibold text-brand-navy">{k.device}</p>
         <p className="text-[11px] text-gray-500">Role · {k.role}</p>
       </div>
-      <div className="flex-none">
+      <div className="flex items-center gap-1.5">
         {k.online ? (
           <StatusBadge tone="green">online</StatusBadge>
         ) : (
@@ -89,7 +89,7 @@ function KioskRow({
           type="button"
           disabled={busy}
           onClick={() => onAct(k.id, "kiosk", "revoke")}
-          className="flex-none rounded-md bg-red-600 px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+          className="rounded-md bg-red-600 px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
         >
           Revoke
         </button>

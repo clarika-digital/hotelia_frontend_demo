@@ -81,8 +81,8 @@ function ApprovalRow({
   busy: boolean;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2">
-      <div className="min-w-0 flex-1">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2">
+      <div className="min-w-0 flex-1 basis-40">
         <p className="truncate text-xs font-semibold text-brand-navy">
           {a.ref} · {a.guest}
         </p>
@@ -90,12 +90,12 @@ function ApprovalRow({
           {METHOD_LABELS[a.method]} · {ageLabel(a.createdAt)} ago
         </p>
       </div>
-      <div className="flex-none text-right">
+      <div className="text-right">
         <p className="text-xs font-semibold text-brand-navy">
           {formatMoney(a.amount, "GHS", "en-GH")}
         </p>
       </div>
-      <div className="flex flex-none gap-1.5">
+      <div className="flex gap-1.5">
         <button
           type="button"
           disabled={busy}
@@ -119,8 +119,8 @@ function ApprovalRow({
 
 function RefundRow({ r }: { r: RefundItem }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2">
-      <div className="min-w-0">
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2">
+      <div className="min-w-0 basis-40">
         <p className="truncate text-xs font-semibold text-brand-navy">{r.ref} · {r.guest}</p>
         <p className="text-[11px] text-gray-500">{ageLabel(r.createdAt)} ago</p>
       </div>
@@ -138,8 +138,8 @@ function RefundRow({ r }: { r: RefundItem }) {
 
 function InvoiceRow({ i }: { i: InvoiceItem }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2">
-      <div className="min-w-0">
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-2">
+      <div className="min-w-0 basis-40">
         <p className="truncate text-xs font-semibold text-brand-navy">{i.ref} · {i.guest}</p>
         <p className="text-[11px] text-gray-500">Due {i.dueDate}</p>
       </div>

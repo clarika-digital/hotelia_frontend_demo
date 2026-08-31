@@ -28,6 +28,7 @@ export interface MegaNavItem {
 }
 
 export interface RoomMenuCategory {
+  label?: string;
   title: string;
   rooms: Room[];
 }
