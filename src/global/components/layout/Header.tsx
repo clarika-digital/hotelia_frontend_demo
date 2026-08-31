@@ -17,6 +17,7 @@ export function Header() {
   const router = useRouter();
   const [open, setOpen] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [signingOut, setSigningOut] = useState(false);
   const claims = useSessionStore((s) => s.claims);
   const triggerRefs = useRef(new Map<string, HTMLButtonElement | null>());
@@ -154,7 +155,12 @@ export function Header() {
 
           <button
             className="text-2xl text-brand-navy lg:hidden"
-            onClick={() => setMobileOpen((v) => !v)}
+            onClick={() =>
+              setMobileOpen((v) => {
+                if (!v) setExpanded(new Set());
+                return !v;
+              })
+            }
             aria-label="Toggle menu"
             aria-expanded={mobileOpen}
           >
@@ -360,67 +366,112 @@ export function Header() {
             )}
           </div>
 
-          {megaNav.map((item) => (
-            <div key={item.label} className="mb-4">
-              <div className="mb-1 font-display text-sm font-bold text-brand-navy">
-                {item.label}
-              </div>
-              {item.roomMenu ? (
-                item.roomMenu.map((cat) => (
-                  <div key={cat.title} className="mb-2">
-                    <div className="text-xs uppercase text-brand-gold">
-                      {cat.title}
+          <div className="divide-y divide-surface-muted">
+            {megaNav.map((item) => {
+              const isDropdown = !!item.columns || !!item.roomMenu;
+              const isOpen = expanded.has(item.label);
+              const toggle = () =>
+                setExpanded((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(item.label)) next.delete(item.label);
+                  else next.add(item.label);
+                  return next;
+                });
+              const go = () => setMobileOpen(false);
+
+              if (!isDropdown) {
+                return (
+                  <Link
+                    key={item.label}
+                    href={item.href!}
+                    onClick={go}
+                    className="flex items-center justify-between py-3 text-sm font-medium text-brand-navy no-underline"
+                  >
+                    {item.label}
+                  </Link>
+                );
+              }
+              return (
+                <div key={item.label}>
+                  <button
+                    type="button"
+                    onClick={toggle}
+                    aria-expanded={isOpen}
+                    className="flex w-full items-center justify-between gap-3 py-3 text-left text-sm font-medium text-brand-navy"
+                  >
+                    <span>{item.label}</span>
+                    <svg
+                      viewBox="0 0 24 24"
+                      aria-hidden
+                      className={cn(
+                        "h-4 w-4 shrink-0 text-brand-gold transition-transform duration-200",
+                        isOpen && "rotate-180"
+                      )}
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="m6 9 6 6 6-6" />
+                    </svg>
+                  </button>
+
+                  {isOpen && (
+                    <div className="pb-3 pl-4">
+                      {item.roomMenu ? (
+                        item.roomMenu.map((cat) => (
+                          <div key={cat.title} className="mb-2">
+                            <div className="text-xs uppercase text-brand-gold">
+                              {cat.title}
+                            </div>
+                            {cat.rooms.map((room) => (
+                              <Link
+                                key={room.slug}
+                                href={getRoomHref(room)}
+                                onClick={go}
+                                className="block py-1 text-sm text-brand-navy no-underline"
+                              >
+                                {room.title}
+                              </Link>
+                            ))}
+                          </div>
+                        ))
+                      ) : item.columns ? (
+                        item.columns.map((col) => (
+                          <div key={col.title} className="mb-2">
+                            <div className="text-xs uppercase text-brand-gold">
+                              {col.title}
+                            </div>
+                            {col.links.map((link) => (
+                              <Link
+                                key={link.href}
+                                href={link.href}
+                                onClick={go}
+                                className="block py-1 text-sm text-brand-navy no-underline"
+                              >
+                                {link.label}
+                              </Link>
+                            ))}
+                          </div>
+                        ))
+                      ) : null}
+
+                      {item.overview && (
+                        <Link
+                          href={item.overview.href}
+                          onClick={go}
+                          className="mt-1 block py-1 text-sm font-semibold text-brand-gold no-underline"
+                        >
+                          {item.overview.label}
+                        </Link>
+                      )}
                     </div>
-                    {cat.rooms.map((room) => (
-                      <Link
-                        key={room.slug}
-                        href={getRoomHref(room)}
-                        className="block py-1 pl-3 text-sm text-brand-navy no-underline"
-                        onClick={() => setMobileOpen(false)}
-                      >
-                        {room.title}
-                      </Link>
-                    ))}
-                  </div>
-                ))
-              ) : item.columns ? (
-                item.columns.map((col) => (
-                  <div key={col.title} className="mb-2">
-                    <div className="text-xs uppercase text-brand-gold">
-                      {col.title}
-                    </div>
-                    {col.links.map((link) => (
-                      <Link
-                        key={link.href}
-                        href={link.href}
-                        className="block py-1 pl-3 text-sm text-brand-navy no-underline"
-                        onClick={() => setMobileOpen(false)}
-                      >
-                        {link.label}
-                      </Link>
-                    ))}
-                  </div>
-                ))
-              ) : (
-                <Link
-                  href={item.href!}
-                  className="block py-1 text-sm text-brand-navy no-underline"
-                  onClick={() => setMobileOpen(false)}
-                >
-                  {item.label}
-                </Link>
-              )}
-              {item.overview && (
-                <Link
-                  href={item.overview.href}
-                  className="block py-1 pl-3 text-sm font-semibold text-brand-gold no-underline"
-                  onClick={() => setMobileOpen(false)}
-                >
-                  {item.overview.label}
-                </Link>
-              )}
-            </div>
-          ))}
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </header>
