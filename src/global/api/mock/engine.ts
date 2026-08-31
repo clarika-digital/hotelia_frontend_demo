@@ -1,10 +1,55 @@
 import { digitsOnly, isValidE164 } from "@/data/phones";
-import { getRoomBySlug } from "@/data/rooms";
+import { getRoomBySlug, rooms } from "@/data/rooms";
 import { rateForRoom, withTax } from "@/domains/booking/rates";
 import { CANCELABLE_STATUSES } from "@/domains/guests/types";
 import type { GuestBooking } from "@/domains/guests/types";
 import type { GuestProfile } from "@/domains/guests/types";
-import { GUEST_BOOKINGS, GUEST_USERS, STAFF_USERS, type MockUser } from "./fixtures";
+import type {
+  AnalyticsSnapshot,
+  AuditEntry,
+  PermissionOverride,
+  WhitelistEntry,
+} from "@/domains/oversight/types";
+import type {
+  ExecutiveRecommendation,
+  ExecutiveSnapshot,
+} from "@/domains/executive/types";
+import type {
+  AccountantSnapshot,
+  ApprovalAction,
+  ApprovalItem,
+} from "@/domains/accounting/types";
+import type { OperationalSnapshot } from "@/domains/operations/types";
+import type {
+  DeviceAction,
+  ItPlatformSnapshot,
+  KioskTouchpoint,
+  SessionDevice,
+} from "@/domains/itplatform/types";
+import {
+  APPROVAL_FIXTURES,
+  ATTENTION_FIXTURES,
+  COLLECTION_HISTORY,
+  COLLECTION_SPLIT_TODAY,
+  GUEST_BOOKINGS,
+  GUEST_USERS,
+  INVOICE_FIXTURES,
+  ISOLATED_AUDIT_FIXTURES,
+  IT_GEOFENCE_FIXTURES,
+  IT_SYSTEM_HEALTH_FIXTURES,
+  KIOSK_FIXTURES,
+  OVERRIDE_FIXTURES,
+  OVERSEER_ROLE_MATRIX,
+  PERMISSION_CATALOG,
+  REFUND_FIXTURES,
+  SESSION_DEVICE_FIXTURES,
+  STANDARD_AUDIT_FIXTURES,
+  STAFF_USERS,
+  TEAM_SNAPSHOT_FIXTURES,
+  WHITELIST_FIXTURES,
+  WORK_ORDER_FIXTURES,
+  type MockUser,
+} from "./fixtures";
 
 interface MockResponse {
   ok: boolean;
@@ -21,6 +66,7 @@ interface MockRequest {
 }
 
 const NETWORK_DELAY_MS = 350;
+const DAY_MS = 86_400_000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -160,6 +206,68 @@ function findBookingByRef(ref: string): GuestBooking | undefined {
   );
 }
 
+function allBookings(): GuestBooking[] {
+  const owned: GuestBooking[] = [];
+  for (const list of guestBookingsByUser.values()) owned.push(...list);
+  return [...walkInBookings, ...GUEST_BOOKINGS, ...owned];
+}
+
+function overrideActive(o: PermissionOverride): boolean {
+  return !o.expiresAt || new Date(o.expiresAt).getTime() > Date.now();
+}
+
+function overrideExpiresSoon(o: PermissionOverride): boolean {
+  if (!o.expiresAt) return false;
+  const ms = new Date(o.expiresAt).getTime() - Date.now();
+  return ms > 0 && ms < 7 * 24 * 3600 * 1000;
+}
+
+const permissionOverrides: PermissionOverride[] = OVERRIDE_FIXTURES.map(
+  (o) => ({ ...o })
+);
+const whitelist: WhitelistEntry[] = WHITELIST_FIXTURES.map((w) => ({
+  ...w,
+  ...(w.scopedHours ? { scopedHours: { ...w.scopedHours } } : {}),
+}));
+const isolatedAuditLog: AuditEntry[] = [...ISOLATED_AUDIT_FIXTURES];
+const standardAuditLog: AuditEntry[] = [...STANDARD_AUDIT_FIXTURES];
+const approvals: ApprovalItem[] = APPROVAL_FIXTURES.map((a) => ({ ...a }));
+const itSessions: SessionDevice[] = SESSION_DEVICE_FIXTURES.map((s) => ({ ...s }));
+const itKiosks: KioskTouchpoint[] = KIOSK_FIXTURES.map((k) => ({ ...k }));
+
+function appAuditId(): number {
+  return Math.max(
+    ...isolatedAuditLog.map((e) => Number(e.id.replace(/\D/g, "")) || 0),
+    ...standardAuditLog.map((e) => Number(e.id.replace(/\D/g, "")) || 0)
+  );
+}
+
+function recordIsolated(actor: MockUser, action: string, detail: string): AuditEntry {
+  const entry: AuditEntry = {
+    id: `iso-${appAuditId() + 1}`,
+    actor: actor.name,
+    actorRole: actor.role ?? "staff",
+    action,
+    detail,
+    at: new Date().toISOString(),
+  };
+  isolatedAuditLog.unshift(entry);
+  return entry;
+}
+
+function recordStandard(actor: MockUser, action: string, detail: string): AuditEntry {
+  const entry: AuditEntry = {
+    id: `std-${appAuditId() + 1}`,
+    actor: actor.name,
+    actorRole: actor.role ?? "staff",
+    action,
+    detail,
+    at: new Date().toISOString(),
+  };
+  standardAuditLog.unshift(entry);
+  return entry;
+}
+
 let bookingRefCounter = 9000;
 
 function nextBookingRef(): string {
@@ -211,6 +319,22 @@ function guestWithPermission(
   if (!user || user.userType !== "guest") return undefined;
   if (!user.permissions.includes(permission)) return undefined;
   return user;
+}
+
+function staffWithPermission(
+  bearer: string | null,
+  permission: string
+): MockUser | undefined {
+  const user = userFromAccessToken(bearer);
+  if (!user || user.userType !== "staff") return undefined;
+  if (!user.permissions.includes(permission)) return undefined;
+  return user;
+}
+
+function oversightId(path: string, prefix: string): string | undefined {
+  if (!path.startsWith(prefix)) return undefined;
+  const id = path.slice(prefix.length);
+  return id && !id.includes("/") ? decodeURIComponent(id) : undefined;
 }
 
 function guestBookingRef(path: string, suffix?: string): string | undefined {
@@ -829,6 +953,836 @@ export async function mockRequest(
       leaveStoreFor(user).unshift(request);
       return envelope(request);
     }
+  }
+
+  if (method === "DELETE") {
+    const overrideId = oversightId(path, "/v1/oversight/overrides/");
+    if (overrideId) {
+      const actor = staffWithPermission(bearer, "rbac.override");
+      if (!actor) {
+        return problem(401, "Unauthorized", "Super admin access required.");
+      }
+      const index = permissionOverrides.findIndex((o) => o.id === overrideId);
+      if (index === -1) {
+        return problem(404, "Not found", `No override with id ${overrideId}.`);
+      }
+      const [removed] = permissionOverrides.splice(index, 1);
+      recordIsolated(
+        actor,
+        "Override revoked",
+        `${removed.userName} \u2014 ${removed.permission}.`
+      );
+      return envelope({ revoked: true });
+    }
+
+    const whitelistId = oversightId(path, "/v1/oversight/whitelist/");
+    if (whitelistId) {
+      const actor = staffWithPermission(bearer, "rbac.whitelist");
+      if (!actor) {
+        return problem(401, "Unauthorized", "Super admin access required.");
+      }
+      const index = whitelist.findIndex((w) => w.id === whitelistId);
+      if (index === -1) {
+        return problem(404, "Not found", `No whitelist entry with id ${whitelistId}.`);
+      }
+      const [removed] = whitelist.splice(index, 1);
+      recordIsolated(
+        actor,
+        "Whitelist exemption revoked",
+        `${removed.userName} \u2014 geofence now enforced.`
+      );
+      return envelope({ revoked: true });
+    }
+  }
+
+  if (path === "/v1/oversight/overrides" && method === "GET") {
+    const actor = staffWithPermission(bearer, "rbac.override");
+    if (!actor) {
+      return problem(401, "Unauthorized", "Super admin access required.");
+    }
+    return envelope([...permissionOverrides].reverse());
+  }
+
+  if (path === "/v1/oversight/overrides" && method === "POST") {
+    const actor = staffWithPermission(bearer, "rbac.override");
+    if (!actor) {
+      return problem(401, "Unauthorized", "Super admin access required.");
+    }
+    const userId = String(body.userId ?? "");
+    const permission = String(body.permission ?? "").trim();
+    const target = userById(userId);
+    if (!target) {
+      return problem(400, "Invalid user", "Choose a valid system user.");
+    }
+    if (!permission || !(PERMISSION_CATALOG as readonly string[]).includes(permission)) {
+      return problem(
+        400,
+        "Invalid permission",
+        "Choose a permission from the catalog."
+      );
+    }
+    const expiresRaw = body.expiresAt ? String(body.expiresAt) : undefined;
+    const expiresAt =
+      expiresRaw && Number.isFinite(Date.parse(expiresRaw)) ? expiresRaw : undefined;
+    const override: PermissionOverride = {
+      id: `ovr-${Date.now()}`,
+      userId: target.id,
+      userName: target.name,
+      permission,
+      grantedBy: actor.name,
+      createdAt: new Date().toISOString(),
+      ...(expiresAt ? { expiresAt } : {}),
+    };
+    permissionOverrides.push(override);
+    recordIsolated(
+      actor,
+      "Override granted",
+      `${target.name} \u2192 ${permission}${
+        expiresAt
+          ? ` (until ${new Date(expiresAt).toISOString().slice(0, 10)})`
+          : " (no expiry)"
+      }.`
+    );
+    return envelope(override);
+  }
+
+  if (path === "/v1/oversight/whitelist" && method === "GET") {
+    const actor = staffWithPermission(bearer, "rbac.whitelist");
+    if (!actor) {
+      return problem(401, "Unauthorized", "Super admin access required.");
+    }
+    return envelope([...whitelist].reverse());
+  }
+
+  if (path === "/v1/oversight/whitelist" && method === "POST") {
+    const actor = staffWithPermission(bearer, "rbac.whitelist");
+    if (!actor) {
+      return problem(401, "Unauthorized", "Super admin access required.");
+    }
+    const userId = String(body.userId ?? "");
+    const target = userById(userId);
+    if (!target) {
+      return problem(400, "Invalid user", "Choose a valid system user.");
+    }
+    const reason = body.reason ? String(body.reason).trim() : undefined;
+    const rawHours = body.scopedHours as
+      | { start?: string; end?: string }
+      | undefined;
+    const hoursPattern = /^([01]\d|2[0-3]):[0-5]\d$/;
+    const scopedHours =
+      rawHours && rawHours.start && rawHours.end
+        ? {
+            start: String(rawHours.start),
+            end: String(rawHours.end),
+          }
+        : undefined;
+    if (
+      scopedHours &&
+      (!hoursPattern.test(scopedHours.start) || !hoursPattern.test(scopedHours.end))
+    ) {
+      return problem(
+        400,
+        "Invalid hours",
+        "Scoped hours must use 24h HH:MM format."
+      );
+    }
+    const entry: WhitelistEntry = {
+      id: `wl-${Date.now()}`,
+      userId: target.id,
+      userName: target.name,
+      ...(reason ? { reason } : {}),
+      ...(scopedHours ? { scopedHours } : {}),
+      grantedBy: actor.name,
+      createdAt: new Date().toISOString(),
+    };
+    whitelist.push(entry);
+    recordIsolated(
+      actor,
+      "Whitelist exemption added",
+      `${target.name}${
+        scopedHours
+          ? ` \u2014 scoped ${scopedHours.start}\u2013${scopedHours.end}`
+          : " \u2014 geofence exempt"
+      }.`
+    );
+    return envelope(entry);
+  }
+
+  if (path === "/v1/oversight/log" && method === "GET") {
+    const actor = staffWithPermission(bearer, "audit.super_admin.read");
+    if (!actor) {
+      return problem(401, "Unauthorized", "Super admin audit access required.");
+    }
+    return envelope([...isolatedAuditLog]);
+  }
+
+  if (path === "/v1/audit/log" && method === "GET") {
+    const actor = staffWithPermission(bearer, "audit.read");
+    if (!actor) {
+      return problem(401, "Unauthorized", "Standard audit access required.");
+    }
+    const entries = standardAuditLog.filter((e) => e.actorRole !== "super_admin");
+    return envelope([...entries].reverse());
+  }
+
+  if (path === "/v1/oversight/users" && method === "GET") {
+    const actor = staffWithPermission(bearer, "rbac.override");
+    if (!actor) {
+      return problem(401, "Unauthorized", "Super admin access required.");
+    }
+    return envelope(
+      [...STAFF_USERS, ...GUEST_USERS].map((u) => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        userType: u.userType,
+        role: u.role ?? null,
+        permissions: u.permissions,
+      }))
+    );
+  }
+
+  if (path === "/v1/oversight/matrix" && method === "GET") {
+    const actor = staffWithPermission(bearer, "rbac.override");
+    if (!actor) {
+      return problem(401, "Unauthorized", "Super admin access required.");
+    }
+    return envelope({ roles: OVERSEER_ROLE_MATRIX, catalog: PERMISSION_CATALOG });
+  }
+
+  if (path === "/v1/oversight/analytics" && method === "GET") {
+    const actor = staffWithPermission(bearer, "audit.read");
+    if (!actor) {
+      return problem(401, "Unauthorized", "Audit read access required.");
+    }
+
+    const now = new Date();
+    const todayKey = now.toISOString().slice(0, 10);
+    const isToday = (iso: string) => iso.slice(0, 10) === todayKey;
+
+    const bookings = allBookings();
+    const countBy = (status: GuestBooking["status"]) =>
+      bookings.filter((b) => b.status === status).length;
+
+    const inHouse = countBy("checked_in");
+    const arrivingToday = bookings.filter(
+      (b) => b.status === "confirmed" && isToday(b.checkIn)
+    ).length;
+    const departingToday = bookings.filter(
+      (b) => b.status === "checked_in" && isToday(b.checkOut)
+    ).length;
+
+    const occupiedNow = inHouse + arrivingToday;
+    const totalRooms = rooms.length;
+    const roomCategories = [
+      "rooms",
+      "suites",
+      "horizon-club",
+      "connecting",
+    ] as const;
+    const byCategory = roomCategories.map((cat) => {
+      const categoryTotal = rooms.filter((r) => r.category === cat).length;
+      const occupied = bookings.filter(
+        (b) =>
+          (b.status === "checked_in" ||
+            (b.status === "confirmed" && isToday(b.checkIn))) &&
+          b.roomCategory === cat
+      ).length;
+      return {
+        category: cat,
+        total: categoryTotal,
+        occupied: Math.min(occupied, categoryTotal),
+      };
+    });
+
+    const revenueBookings = bookings.filter(
+      (b) =>
+        b.status === "confirmed" ||
+        b.status === "checked_in" ||
+        b.status === "checked_out"
+    );
+    const confirmedAmt = revenueBookings.reduce((a, b) => a + b.total, 0);
+    const pendingAmt = bookings
+      .filter((b) => b.status === "pending")
+      .reduce((a, b) => a + b.total, 0);
+    const cancelledAmt = bookings
+      .filter((b) => b.status === "cancelled")
+      .reduce((a, b) => a + b.total, 0);
+    const revenueNights = revenueBookings.reduce((a, b) => a + b.nights, 0);
+    const weights = [0.1, 0.14, 0.12, 0.18, 0.15, 0.31];
+    const trending = weights.map((w, i) => {
+      const d = new Date(now);
+      d.setDate(d.getDate() - (5 - i) * 7);
+      return {
+        label: d.toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "short",
+        }),
+        amount: Math.round(confirmedAmt * w),
+      };
+    });
+
+    const allGuests = [...GUEST_USERS, ...registeredGuests];
+    const guestTotal = allGuests.length;
+    const registeredCount = registeredGuests.length;
+    const completeProfiles =
+      (GUEST_USERS.some((u) => u.id === "guest-1") ? 1 : 0) + registeredCount;
+
+    const snapshot: AnalyticsSnapshot = {
+      generatedAt: now.toISOString(),
+      occupancy: {
+        totalRooms,
+        inHouse,
+        arrivingToday,
+        departingToday,
+        available: Math.max(totalRooms - occupiedNow, 0),
+        rate: totalRooms ? Math.round((occupiedNow / totalRooms) * 100) : 0,
+        byCategory,
+      },
+      revenue: {
+        total: confirmedAmt + pendingAmt,
+        confirmed: confirmedAmt,
+        pending: pendingAmt,
+        cancelled: cancelledAmt,
+        perNight: revenueNights ? Math.round(confirmedAmt / revenueNights) : 0,
+        tax: Math.round(confirmedAmt - confirmedAmt / 1.15),
+        trend: trending,
+      },
+      reservations: {
+        pending: countBy("pending"),
+        confirmed: countBy("confirmed"),
+        inHouse: countBy("checked_in"),
+        completed: countBy("checked_out"),
+        cancelled: countBy("cancelled"),
+        account: bookings.length - walkInBookings.length,
+        walkIn: walkInBookings.length,
+        avgNights: bookings.length
+          ? Math.round((bookings.reduce((a, b) => a + b.nights, 0) / bookings.length) * 10) / 10
+          : 0,
+      },
+      guests: {
+        total: guestTotal,
+        registered: registeredCount,
+        completeProfiles,
+        byCountry: [
+          { country: "Ghana", count: Math.max(guestTotal - 2, 0) },
+          { country: "United Kingdom", count: 1 },
+          { country: "United States", count: 1 },
+        ],
+      },
+      security: {
+        activeSessions: activeRefreshTokens.size,
+        overrides: permissionOverrides.filter(overrideActive).length,
+        expiringSoon: permissionOverrides.filter(overrideExpiresSoon).length,
+        whitelist: whitelist.length,
+        violations: STAFF_USERS.filter((u) => !geofenceAllowed(u)).length,
+        accountsByRole: (() => {
+          const counts = new Map<string, number>();
+          for (const u of STAFF_USERS) {
+            const role = u.role ?? "staff";
+            counts.set(role, (counts.get(role) ?? 0) + 1);
+          }
+          counts.set("guest", (counts.get("guest") ?? 0) + guestTotal);
+          return [...counts.entries()].map(([role, count]) => ({ role, count }));
+        })(),
+      },
+      audit: {
+        isolatedToday: isolatedAuditLog.filter((e) => isToday(e.at)).length,
+        standardToday: standardAuditLog.filter(
+          (e) => e.actorRole !== "super_admin" && isToday(e.at)
+        ).length,
+        recent: [...isolatedAuditLog].slice(0, 3),
+      },
+    };
+
+    return envelope(snapshot);
+  }
+
+  if (path === "/v1/executive/analytics" && method === "GET") {
+    const actor = staffWithPermission(bearer, "analytics.read");
+    if (!actor) {
+      return problem(401, "Unauthorized", "Analytics read access required.");
+    }
+
+    const now = new Date();
+    const todayKey = now.toISOString().slice(0, 10);
+    const isToday = (iso: string) => iso.slice(0, 10) === todayKey;
+
+    const bookings = allBookings();
+    const countBy = (status: GuestBooking["status"]) =>
+      bookings.filter((b) => b.status === status).length;
+
+    const inHouse = countBy("checked_in");
+    const arrivingToday = bookings.filter(
+      (b) => b.status === "confirmed" && isToday(b.checkIn)
+    ).length;
+    const departingToday = bookings.filter(
+      (b) => b.status === "checked_in" && isToday(b.checkOut)
+    ).length;
+
+    const occupiedNow = inHouse + arrivingToday;
+    const totalRooms = rooms.length;
+    const available = Math.max(totalRooms - occupiedNow, 0);
+    const occupancyRate = totalRooms ? Math.round((occupiedNow / totalRooms) * 100) : 0;
+
+    const roomCategories = [
+      "rooms",
+      "suites",
+      "horizon-club",
+      "connecting",
+    ] as const;
+    const byCategory = roomCategories.map((cat) => {
+      const categoryTotal = rooms.filter((r) => r.category === cat).length;
+      const occupied = bookings.filter(
+        (b) =>
+          (b.status === "checked_in" ||
+            (b.status === "confirmed" && isToday(b.checkIn))) &&
+          b.roomCategory === cat
+      ).length;
+      return {
+        category: cat,
+        total: categoryTotal,
+        occupied: Math.min(occupied, categoryTotal),
+      };
+    });
+
+    const revenueBookings = bookings.filter(
+      (b) =>
+        b.status === "confirmed" ||
+        b.status === "checked_in" ||
+        b.status === "checked_out"
+    );
+    const confirmedAmt = revenueBookings.reduce((a, b) => a + b.total, 0);
+    const pendingAmt = bookings
+      .filter((b) => b.status === "pending")
+      .reduce((a, b) => a + b.total, 0);
+    const cancelledAmt = bookings
+      .filter((b) => b.status === "cancelled")
+      .reduce((a, b) => a + b.total, 0);
+    const revenueNights = revenueBookings.reduce((a, b) => a + b.nights, 0);
+    const perNight = revenueNights ? Math.round(confirmedAmt / revenueNights) : 0;
+    const adr = revenueNights ? Math.round(confirmedAmt / revenueNights) : 0;
+    const revpar = totalRooms ? Math.round(confirmedAmt / totalRooms) : 0;
+    const tax = Math.round(confirmedAmt - confirmedAmt / 1.15);
+
+    const weights = [0.1, 0.14, 0.12, 0.18, 0.15, 0.31];
+    const trend = weights.map((w, i) => {
+      const d = new Date(now);
+      d.setDate(d.getDate() - (5 - i) * 7);
+      return {
+        label: d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" }),
+        amount: Math.round(confirmedAmt * w),
+      };
+    });
+
+    const pending = countBy("pending");
+    const confirmed = countBy("confirmed");
+    const completed = countBy("checked_out");
+    const cancelled = countBy("cancelled");
+    const account = bookings.length - walkInBookings.length;
+    const walkIn = walkInBookings.length;
+    const advance7d = bookings.filter(
+      (b) => ["pending", "confirmed"].includes(b.status) &&
+        Date.parse(b.checkIn) - now.getTime() <= 7 * DAY_MS &&
+        Date.parse(b.checkIn) - now.getTime() >= 0
+    ).length;
+    const weekendArrivals = bookings.filter(
+      (b) => b.status === "confirmed" && isToday(b.checkIn)
+    ).length;
+    const weekendProjection = totalRooms
+      ? Math.min(
+          100,
+          Math.round(((inHouse + weekendArrivals + confirmed) / totalRooms) * 100)
+        )
+      : 0;
+    const avgNights = bookings.length
+      ? Math.round((bookings.reduce((a, b) => a + b.nights, 0) / bookings.length) * 10) / 10
+      : 0;
+
+    const allGuests = [...GUEST_USERS, ...registeredGuests];
+    const guestTotal = allGuests.length;
+    const byCountry = [
+      { country: "Ghana", count: Math.max(guestTotal - 2, 0) },
+      { country: "United Kingdom", count: 1 },
+      { country: "United States", count: 1 },
+    ];
+
+    const trendDelta =
+      trend.length >= 2 && trend[trend.length - 1].amount
+        ? Math.round(
+            ((trend[trend.length - 1].amount - trend[trend.length - 2].amount) /
+              trend[trend.length - 2].amount) *
+              100
+          )
+        : 0;
+
+    const recommendations: ExecutiveRecommendation[] = [
+      {
+        label: trendDelta >= 0 ? "Weekend rate lift" : "Stabilise weekend pricing",
+        impact: trendDelta >= 0 ? `+${trendDelta}% est.` : "Review pricing",
+        tone: trendDelta >= 0 ? "green" : "amber",
+        why: `Revenue trend ${trendDelta >= 0 ? "up" : "down"} ${Math.abs(trendDelta)}% WoW`,
+      },
+      {
+        label: "Repeat-guest loyalty",
+        impact: `${Math.max(Math.round(guestTotal * 0.22), 0)} guests`,
+        tone: "amber",
+        why: "2+ stays projected in 60 days",
+      },
+      {
+        label: "Advance demand capture",
+        impact: `${advance7d} within 7 days`,
+        tone: advance7d > 20 ? "green" : "neutral",
+        why: `${advance7d} advance bookings in the window`,
+      },
+    ];
+
+    const snapshot: ExecutiveSnapshot = {
+      generatedAt: now.toISOString(),
+      performance: {
+        revenueToday: confirmedAmt,
+        occupancyRate,
+        adr,
+        revpar,
+        totalRooms,
+        inHouse,
+        available,
+      },
+      occupancy: {
+        totalRooms,
+        inHouse,
+        arrivingToday,
+        departingToday,
+        available,
+        rate: occupancyRate,
+        byCategory,
+      },
+      revenue: {
+        confirmed: confirmedAmt,
+        pending: pendingAmt,
+        cancelled: cancelledAmt,
+        perNight,
+        adr,
+        revpar,
+        tax,
+        trend,
+      },
+      demand: {
+        pending,
+        confirmed,
+        inHouse,
+        completed,
+        cancelled,
+        account,
+        walkIn,
+        advance7d,
+        weekendProjection,
+        avgNights,
+      },
+      markets: {
+        total: guestTotal,
+        byCountry,
+      },
+      recommendations,
+    };
+
+    return envelope(snapshot);
+  }
+
+  if (path === "/v1/accountant/overview" && method === "GET") {
+    const actor = staffWithPermission(bearer, "payments.read");
+    if (!actor) {
+      return problem(401, "Unauthorized", "Payments read access required.");
+    }
+
+    const pending = approvals.filter((a) => a.status === "pending");
+    const pendingValue = pending.reduce((sum, a) => sum + a.amount, 0);
+    const oldest = pending.reduce<number | null>((min, a) => {
+      const age = Date.now() - Date.parse(a.createdAt);
+      return min === null ? age : Math.max(min, age);
+    }, null);
+
+    const pendingRefunds = REFUND_FIXTURES.filter(
+      (r) => r.status === "pending" || r.status === "manager_sign_off"
+    );
+    const requiringSignOff = REFUND_FIXTURES.filter(
+      (r) => r.status === "manager_sign_off"
+    ).length;
+
+    const openInvoices = INVOICE_FIXTURES.filter((i) => i.status !== "paid");
+    const outstandingValue = openInvoices.reduce((sum, i) => sum + i.amount, 0);
+    const overdue = INVOICE_FIXTURES.filter((i) => i.status === "overdue").length;
+
+    const collectedToday =
+      COLLECTION_HISTORY.length > 0
+        ? COLLECTION_HISTORY[COLLECTION_HISTORY.length - 1].amount
+        : 0;
+    const expected = collectedToday;
+    const settled = COLLECTION_SPLIT_TODAY.reduce((sum, m) => sum + m.amount, 0);
+    const reconciliationVariance = expected - settled;
+
+    const snapshot: AccountantSnapshot = {
+      generatedAt: new Date().toISOString(),
+      kpis: {
+        pendingApprovals: pending.length,
+        pendingApprovalsValue: pendingValue,
+        oldestApprovalAgeMin: oldest ? Math.round(oldest / 60000) : 0,
+        collectedToday,
+        refundsInFlight: pendingRefunds.length,
+        refundsRequiringSignOff: requiringSignOff,
+        outstandingInvoices: openInvoices.length,
+        outstandingValue,
+        overdueInvoices: overdue,
+        reconciliationVariance,
+        fxConversions: 6,
+      },
+      collections: {
+        todayByMethod: COLLECTION_SPLIT_TODAY,
+        trend7d: COLLECTION_HISTORY,
+      },
+      approvals: approvals.map((a) => ({ ...a })),
+      refunds: REFUND_FIXTURES.map((r) => ({ ...r })),
+      invoices: INVOICE_FIXTURES.map((i) => ({ ...i })),
+      reconciliation: {
+        expected,
+        settled,
+        variance: reconciliationVariance,
+        settledByMethod: COLLECTION_SPLIT_TODAY,
+      },
+    };
+
+    return envelope(snapshot);
+  }
+
+  if (path === "/v1/accountant/approvals" && method === "POST") {
+    const actor = staffWithPermission(bearer, "payments.approve");
+    if (!actor) {
+      return problem(401, "Unauthorized", "Payment approval access required.");
+    }
+    const id = String(body.id ?? "");
+    const action = String(body.action ?? "") as ApprovalAction;
+    const target = approvals.find((a) => a.id === id);
+    if (!target) {
+      return problem(404, "Not found", `No pending approval with id ${id}.`);
+    }
+    if (!["approve", "reject"].includes(action)) {
+      return problem(422, "Invalid action", "Action must be approve or reject.");
+    }
+    if (target.status !== "pending") {
+      return problem(409, "Already decided", `Approval ${target.ref} is already ${target.status}.`);
+    }
+
+    target.status = action === "approve" ? "approved" : "rejected";
+    recordStandard(
+      actor,
+      action === "approve" ? "Payment approved" : "Payment rejected",
+      `${target.ref} · ${target.guest} · ${target.method}`
+    );
+
+    return envelope({ ...target });
+  }
+
+  if (path === "/v1/manager/overview" && method === "GET") {
+    const actor = staffWithPermission(bearer, "analytics.read");
+    if (!actor) {
+      return problem(401, "Unauthorized", "Analytics read access required.");
+    }
+
+    const now = new Date();
+    const todayKey = now.toISOString().slice(0, 10);
+    const isToday = (iso: string) => iso.slice(0, 10) === todayKey;
+
+    const bookings = allBookings();
+    const countBy = (status: GuestBooking["status"]) =>
+      bookings.filter((b) => b.status === status).length;
+
+    const inHouse = countBy("checked_in");
+    const arrivalsToday = bookings.filter(
+      (b) => b.status === "confirmed" && isToday(b.checkIn)
+    ).length;
+    const departuresToday = bookings.filter(
+      (b) => b.status === "checked_in" && isToday(b.checkOut)
+    ).length;
+    const occupiedNow = inHouse + arrivalsToday;
+    const totalRooms = rooms.length;
+    const occupancy = totalRooms ? Math.round((occupiedNow / totalRooms) * 100) : 0;
+
+    const occupiedByCat = new Map<string, number>();
+    for (const b of bookings) {
+      if (b.status === "checked_in" || (b.status === "confirmed" && isToday(b.checkIn))) {
+        occupiedByCat.set(b.roomCategory, (occupiedByCat.get(b.roomCategory) ?? 0) + 1);
+      }
+    }
+    const occupancyTrend = [
+      { label: "Mon", value: 66 },
+      { label: "Tue", value: 71 },
+      { label: "Wed", value: 68 },
+      { label: "Thu", value: 74 },
+      { label: "Fri", value: 79 },
+      { label: "Sat", value: occupancy },
+      { label: "Sun", value: occupancy },
+    ];
+
+    const openWorkOrders = WORK_ORDER_FIXTURES.filter(
+      (w) => w.status !== "resolved"
+    ).length;
+    const highPriority = WORK_ORDER_FIXTURES.filter(
+      (w) => w.priority === "high" && w.status !== "resolved"
+    ).length;
+    const housekeepingInProgress =
+      TEAM_SNAPSHOT_FIXTURES.find((t) => t.label === "Housekeeping in progress")?.value ?? 0;
+    const guestApprovalsPending =
+      TEAM_SNAPSHOT_FIXTURES.find((t) => t.label === "Guest approvals pending")?.value ?? 0;
+    const blockedRooms =
+      TEAM_SNAPSHOT_FIXTURES.find((t) => t.label === "Rooms blocked for maintenance")?.value ?? 0;
+
+    const pendingScrutiny = REFUND_FIXTURES.filter(
+      (r) => r.status === "pending" || r.status === "manager_sign_off"
+    ).length;
+    const signOffRequired = REFUND_FIXTURES.filter(
+      (r) => r.status === "manager_sign_off"
+    ).length;
+    const pendingEscalations =
+      ATTENTION_FIXTURES.filter((a) => a.priority === "high" || a.priority === "medium")
+        .length;
+    const openTasks = openWorkOrders + housekeepingInProgress + guestApprovalsPending;
+
+    const account = bookings.length - walkInBookings.length;
+    const walkIn = walkInBookings.length;
+
+    const recommendations = [
+      {
+        id: "op-rec-1",
+        level: "warning" as const,
+        message: `${highPriority} high-priority work order${highPriority === 1 ? "" : "s"} open — assign a technician to clear ${highPriority > 0 ? "405/509" : "the queue"} before arrivals peak.`,
+      },
+      {
+        id: "op-rec-2",
+        level: "info" as const,
+        message: `${signOffRequired} refund${signOffRequired === 1 ? "" : "s"} require${signOffRequired === 1 ? "s" : ""} your sign-off.`,
+      },
+      {
+        id: "op-rec-3",
+        level: "info" as const,
+        message: `Occupancy running at ${occupancy}% with ${arrivalsToday} arrivals today — flag housekeeping to turn rooms by checkout.`,
+      },
+      {
+        id: "op-rec-4",
+        level: "success" as const,
+        message: `${walkIn} of ${bookings.length} bookings are walk-in — reception is capturing walk-ins well this shift.`,
+      },
+    ];
+
+    const snapshot: OperationalSnapshot = {
+      generatedAt: new Date().toISOString(),
+      kpis: {
+        occupancy,
+        arrivalsToday,
+        departuresToday,
+        openTasks,
+        pendingEscalations,
+        signOffRequired,
+        highPriorityMaintenance: highPriority,
+        housekeepingInProgress,
+        openWorkOrders,
+        guestApprovalsPending,
+        blockedRooms,
+      },
+      occupancyTrend,
+      workOrders: WORK_ORDER_FIXTURES.map((w) => ({ ...w })),
+      teamSnapshot: TEAM_SNAPSHOT_FIXTURES.map((t) => ({ ...t })),
+      attention: ATTENTION_FIXTURES.map((a) => ({ ...a })),
+      pipeline: {
+        status: [
+          { label: "Pending", field: "pending", color: "#d97706", count: countBy("pending") },
+          { label: "Confirmed", field: "confirmed", color: "#876a20", count: countBy("confirmed") },
+          { label: "In-house", field: "inHouse", color: "#15803d", count: countBy("checked_in") },
+          { label: "Completed", field: "completed", color: "#64748b", count: countBy("checked_out") },
+          { label: "Cancelled", field: "cancelled", color: "#dc2626", count: countBy("cancelled") },
+        ],
+        account,
+        walkIn,
+      },
+      recommendations,
+    };
+
+    return envelope(snapshot);
+  }
+
+  if (path === "/v1/it/overview" && method === "GET") {
+    const actor = staffWithPermission(bearer, "sessions.read");
+    if (!actor) {
+      return problem(401, "Unauthorized", "IT session read access required.");
+    }
+
+    const activeSessions = Math.max(itSessions.filter((s) => s.geofence === "verified").length, 1);
+    const revoked = itKiosks.filter((k) => k.token === "expired").length;
+    const deviceMix = [
+      { label: "Kiosk (lobby)", value: 1, color: "#15803d" },
+      { label: "Tablet / POS", value: 1, color: "#223047" },
+      { label: "Smartphone", value: 1, color: "#876a20" },
+      { label: "Laptop / Desktop", value: 2, color: "#64748b" },
+    ];
+    const tokenHealth = [
+      { label: "Valid tokens", value: 3, color: "#15803d" },
+      { label: "Expired / revoked", value: 2, color: "#dc2626" },
+      { label: "Denied (off-property)", value: 1, color: "#d97706" },
+    ];
+
+    const snapshot: ItPlatformSnapshot = {
+      generatedAt: new Date().toISOString(),
+      kpis: {
+        staffAccounts: STAFF_USERS.length,
+        touchpointsProvisioned: itSessions.length,
+        activeSessions: activeRefreshTokens.size + activeSessions,
+        tokenRefreshes24h: refreshCounter,
+        tokenRefreshFailures: 1,
+        revokedTokens7d: revoked,
+      },
+      deviceMix,
+      tokenHealth,
+      sessions: itSessions.map((s) => ({ ...s })),
+      kiosks: itKiosks.map((k) => ({ ...k })),
+      systouch: { ...IT_SYSTEM_HEALTH_FIXTURES, errorFeed: [...IT_SYSTEM_HEALTH_FIXTURES.errorFeed] },
+      geofence: { ...IT_GEOFENCE_FIXTURES, enforcedRoles: [...IT_GEOFENCE_FIXTURES.enforcedRoles] },
+    };
+
+    return envelope(snapshot);
+  }
+
+  if (path === "/v1/it/devices" && method === "POST") {
+    const actor = staffWithPermission(bearer, "sessions.manage");
+    if (!actor) {
+      return problem(401, "Unauthorized", "IT session management access required.");
+    }
+    const id = String(body.id ?? "");
+    const target = String(body.target ?? "") as "session" | "kiosk";
+    const action = String(body.action ?? "") as DeviceAction;
+    if (!["session", "kiosk"].includes(target)) {
+      return problem(422, "Invalid target", "Target must be session or kiosk.");
+    }
+    if (!["revoke", "terminate"].includes(action)) {
+      return problem(422, "Invalid action", "Action must be revoke or terminate.");
+    }
+
+    if (target === "kiosk") {
+      const k = itKiosks.find((x) => x.id === id);
+      if (!k) return problem(404, "Not found", `No kiosk touchpoint with id ${id}.`);
+      k.token = "expired";
+      k.online = false;
+      recordStandard(actor, "Device revoked", `${k.device} · ${k.role}`);
+      return envelope({ ...k });
+    }
+
+    const s = itSessions.find((x) => x.id === id);
+    if (!s) return problem(404, "Not found", `No session with id ${id}.`);
+    if (s.geofence === "denied") {
+      return problem(409, "Already terminated", `Session ${s.id} is already terminated.`);
+    }
+    s.geofence = "denied";
+    activeRefreshTokens.delete(id);
+    recordStandard(actor, "Session terminated", `${s.device} · ${s.user} (${s.role})`);
+    return envelope({ ...s });
   }
 
   return problem(404, "Not found", `No mock handler for ${method} ${path}`);

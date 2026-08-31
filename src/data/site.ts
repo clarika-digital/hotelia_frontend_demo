@@ -222,8 +222,8 @@ export const bottomLinks: { name: string; url: string }[] = [
 ];
 
 export const poweredBy = {
-  label: "Teva Clarika Digital",
-  url: "https://www.clarikadigital.net/",
+  label: "Teva Clarica Digital",
+  url: "https://clarikadigital.net/",
 };
 
 export function buildFooterSections(): FooterSection[] {

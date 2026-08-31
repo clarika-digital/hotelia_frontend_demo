@@ -74,7 +74,7 @@ export function Footer() {
           </div>
         </div>
         <div className="mx-auto max-w-6xl px-5 pb-8 text-xs text-gray-300">
-          &copy; 2026 {siteConfig.name} • International Hotel Management Ltd. All Rights Reserved.
+          &copy; {new Date().getFullYear()} {siteConfig.name} • International Hotel Management Ltd. All Rights Reserved.
           Powered by:{" "}
           <a
             href={poweredBy.url}
