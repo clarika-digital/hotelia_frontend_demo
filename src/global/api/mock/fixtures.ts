@@ -16,6 +16,12 @@ import type {
   TeamCounter,
   WorkOrderItem,
 } from "@/domains/operations/types";
+import type {
+  GeofenceConfig,
+  KioskTouchpoint,
+  SessionDevice,
+  SystemHealth,
+} from "@/domains/itplatform/types";
 
 export interface MockUser {
   id: string;
@@ -104,7 +110,7 @@ export const STAFF_USERS: MockUser[] = [
     password: "staff123",
     pin: "1234",
     role: "it_manager",
-    permissions: ["staff.manage", "sessions.read"],
+    permissions: ["staff.manage", "sessions.read", "sessions.manage"],
     geofenceVerified: true,
   },
   {
@@ -639,5 +645,38 @@ export const TEAM_SNAPSHOT_FIXTURES: TeamCounter[] = [
   { label: "Guest approvals pending", value: 3 },
   { label: "Rooms blocked for maintenance", value: 1 },
 ];
+
+export const SESSION_DEVICE_FIXTURES: SessionDevice[] = [
+  { id: "sess-1", device: "Hotelia kiosk — Lobby", user: "Ama Mensah", role: "Front Desk", os: "kioskOS 2.4", ip: "10.20.1.12", country: "Ghana", geofence: "verified", lastActive: 1 },
+  { id: "sess-2", device: "Tablet — Accounts", user: "Daniel Oppong", role: "Accountant", os: "iPadOS 17", ip: "10.20.1.27", country: "Ghana", geofence: "verified", lastActive: 6 },
+  { id: "sess-3", device: "Housekeeping phone", user: "Aliyu Braimah", role: "Housekeeping", os: "Android 14", ip: "10.20.2.41", country: "Ghana", geofence: "denied", lastActive: 12 },
+  { id: "sess-4", device: "Laptop — Back office", user: "Efua Owusu", role: "Manager", os: "Windows 11", ip: "10.20.1.9", country: "Ghana", geofence: "verified", lastActive: 2 },
+  { id: "sess-5", device: "Laptop — IT", user: "Yaw Antwi", role: "IT Manager", os: "macOS 14", ip: "10.20.1.5", country: "Ghana", geofence: "verified", lastActive: 0 },
+];
+
+export const KIOSK_FIXTURES: KioskTouchpoint[] = [
+  { id: "kiosk-1", device: "Hotelia kiosk — Lobby", role: "Front Desk", token: "valid", online: true },
+  { id: "kiosk-2", device: "Tablet — Accounts", role: "Accountant", token: "valid", online: true },
+  { id: "kiosk-3", device: "Housekeeping phone", role: "Housekeeping", token: "expired", online: false },
+];
+
+export const IT_SYSTEM_HEALTH_FIXTURES: SystemHealth = {
+  uptime: "99.2% — 30 days",
+  status: "operational",
+  errorFeed: [
+    "API error feed: 403 on one refresh (housekeeping device, off-property).",
+    "Webhook delivery delayed 4 min (booking channel), auto-retried.",
+  ],
+  lastSync: "minutes ago",
+};
+
+export const IT_GEOFENCE_FIXTURES: GeofenceConfig = {
+  property: "Hotelia Accra — Airport City",
+  radiusKm: 0.8,
+  latitude: 5.6308,
+  longitude: -0.1689,
+  enforcedRoles: ["front_desk", "accountant", "housekeeping", "maintenance", "manager", "it_manager"],
+};
+
 
 

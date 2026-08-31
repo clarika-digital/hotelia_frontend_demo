@@ -20,6 +20,12 @@ import type {
   ApprovalItem,
 } from "@/domains/accounting/types";
 import type { OperationalSnapshot } from "@/domains/operations/types";
+import type {
+  DeviceAction,
+  ItPlatformSnapshot,
+  KioskTouchpoint,
+  SessionDevice,
+} from "@/domains/itplatform/types";
 import {
   APPROVAL_FIXTURES,
   ATTENTION_FIXTURES,
@@ -29,10 +35,14 @@ import {
   GUEST_USERS,
   INVOICE_FIXTURES,
   ISOLATED_AUDIT_FIXTURES,
+  IT_GEOFENCE_FIXTURES,
+  IT_SYSTEM_HEALTH_FIXTURES,
+  KIOSK_FIXTURES,
   OVERRIDE_FIXTURES,
   OVERSEER_ROLE_MATRIX,
   PERMISSION_CATALOG,
   REFUND_FIXTURES,
+  SESSION_DEVICE_FIXTURES,
   STANDARD_AUDIT_FIXTURES,
   STAFF_USERS,
   TEAM_SNAPSHOT_FIXTURES,
@@ -222,6 +232,8 @@ const whitelist: WhitelistEntry[] = WHITELIST_FIXTURES.map((w) => ({
 const isolatedAuditLog: AuditEntry[] = [...ISOLATED_AUDIT_FIXTURES];
 const standardAuditLog: AuditEntry[] = [...STANDARD_AUDIT_FIXTURES];
 const approvals: ApprovalItem[] = APPROVAL_FIXTURES.map((a) => ({ ...a }));
+const itSessions: SessionDevice[] = SESSION_DEVICE_FIXTURES.map((s) => ({ ...s }));
+const itKiosks: KioskTouchpoint[] = KIOSK_FIXTURES.map((k) => ({ ...k }));
 
 function appAuditId(): number {
   return Math.max(
@@ -1695,6 +1707,82 @@ export async function mockRequest(
     };
 
     return envelope(snapshot);
+  }
+
+  if (path === "/v1/it/overview" && method === "GET") {
+    const actor = staffWithPermission(bearer, "sessions.read");
+    if (!actor) {
+      return problem(401, "Unauthorized", "IT session read access required.");
+    }
+
+    const activeSessions = Math.max(itSessions.filter((s) => s.geofence === "verified").length, 1);
+    const revoked = itKiosks.filter((k) => k.token === "expired").length;
+    const deviceMix = [
+      { label: "Kiosk (lobby)", value: 1, color: "#15803d" },
+      { label: "Tablet / POS", value: 1, color: "#223047" },
+      { label: "Smartphone", value: 1, color: "#876a20" },
+      { label: "Laptop / Desktop", value: 2, color: "#64748b" },
+    ];
+    const tokenHealth = [
+      { label: "Valid tokens", value: 3, color: "#15803d" },
+      { label: "Expired / revoked", value: 2, color: "#dc2626" },
+      { label: "Denied (off-property)", value: 1, color: "#d97706" },
+    ];
+
+    const snapshot: ItPlatformSnapshot = {
+      generatedAt: new Date().toISOString(),
+      kpis: {
+        staffAccounts: STAFF_USERS.length,
+        touchpointsProvisioned: itSessions.length,
+        activeSessions: activeRefreshTokens.size + activeSessions,
+        tokenRefreshes24h: refreshCounter,
+        tokenRefreshFailures: 1,
+        revokedTokens7d: revoked,
+      },
+      deviceMix,
+      tokenHealth,
+      sessions: itSessions.map((s) => ({ ...s })),
+      kiosks: itKiosks.map((k) => ({ ...k })),
+      systouch: { ...IT_SYSTEM_HEALTH_FIXTURES, errorFeed: [...IT_SYSTEM_HEALTH_FIXTURES.errorFeed] },
+      geofence: { ...IT_GEOFENCE_FIXTURES, enforcedRoles: [...IT_GEOFENCE_FIXTURES.enforcedRoles] },
+    };
+
+    return envelope(snapshot);
+  }
+
+  if (path === "/v1/it/devices" && method === "POST") {
+    const actor = staffWithPermission(bearer, "sessions.manage");
+    if (!actor) {
+      return problem(401, "Unauthorized", "IT session management access required.");
+    }
+    const id = String(body.id ?? "");
+    const target = String(body.target ?? "") as "session" | "kiosk";
+    const action = String(body.action ?? "") as DeviceAction;
+    if (!["session", "kiosk"].includes(target)) {
+      return problem(422, "Invalid target", "Target must be session or kiosk.");
+    }
+    if (!["revoke", "terminate"].includes(action)) {
+      return problem(422, "Invalid action", "Action must be revoke or terminate.");
+    }
+
+    if (target === "kiosk") {
+      const k = itKiosks.find((x) => x.id === id);
+      if (!k) return problem(404, "Not found", `No kiosk touchpoint with id ${id}.`);
+      k.token = "expired";
+      k.online = false;
+      recordStandard(actor, "Device revoked", `${k.device} · ${k.role}`);
+      return envelope({ ...k });
+    }
+
+    const s = itSessions.find((x) => x.id === id);
+    if (!s) return problem(404, "Not found", `No session with id ${id}.`);
+    if (s.geofence === "denied") {
+      return problem(409, "Already terminated", `Session ${s.id} is already terminated.`);
+    }
+    s.geofence = "denied";
+    activeRefreshTokens.delete(id);
+    recordStandard(actor, "Session terminated", `${s.device} · ${s.user} (${s.role})`);
+    return envelope({ ...s });
   }
 
   return problem(404, "Not found", `No mock handler for ${method} ${path}`);
