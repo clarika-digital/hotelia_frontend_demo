@@ -1,4 +1,21 @@
 import type { GuestBooking } from "@/domains/guests/types";
+import type {
+  AuditEntry,
+  PermissionOverride,
+  WhitelistEntry,
+} from "@/domains/oversight/types";
+import type {
+  ApprovalItem,
+  CollectionBucket,
+  InvoiceItem,
+  MethodSplit,
+  RefundItem,
+} from "@/domains/accounting/types";
+import type {
+  AttentionItem,
+  TeamCounter,
+  WorkOrderItem,
+} from "@/domains/operations/types";
 
 export interface MockUser {
   id: string;
@@ -104,12 +121,17 @@ export const STAFF_USERS: MockUser[] = [
   {
     id: "staff-super_admin",
     userType: "staff",
-    name: "Root Overseer",
+    name: "Super Admin",
     email: "super_admin@hotelia.test",
     password: "staff123",
     pin: "1234",
     role: "super_admin",
-    permissions: ["rbac.override", "rbac.whitelist", "audit.super_admin.read"],
+    permissions: [
+      "rbac.override",
+      "rbac.whitelist",
+      "audit.read",
+      "audit.super_admin.read",
+    ],
     geofenceVerified: true,
   },
 ];
@@ -307,3 +329,315 @@ export const GUEST_BOOKINGS: GuestBooking[] = [
     ],
   },
 ];
+
+export const OVERSEER_ROLE_MATRIX: Record<string, string[]> = {
+  front_desk: [
+    "rooms.read",
+    "rooms.status.update",
+    "reservations.create",
+    "reservations.checkin",
+    "reservations.checkout",
+    "payments.record",
+    "guests.lookup",
+  ],
+  accountant: [
+    "payments.read",
+    "payments.approve",
+    "refunds.initiate",
+    "invoices.read",
+  ],
+  housekeeping: ["housekeeping.read", "housekeeping.update", "rooms.status.update"],
+  maintenance: ["maintenance.read", "maintenance.update"],
+  manager: [
+    "maintenance.manage",
+    "rooms.status.override",
+    "audit.read",
+    "analytics.read",
+    "reservations.update",
+  ],
+  it_manager: ["staff.manage", "sessions.read"],
+  executive: ["analytics.read", "recommendations.read"],
+  super_admin: [
+    "rbac.override",
+    "rbac.whitelist",
+    "audit.read",
+    "audit.super_admin.read",
+  ],
+};
+
+export const PERMISSION_CATALOG = [
+  "audit.read",
+  "payments.approve",
+  "payments.record",
+  "refunds.initiate",
+  "reservations.create",
+  "reservations.checkin",
+  "reservations.update",
+  "rooms.status.override",
+  "staff.manage",
+  "sessions.read",
+  "housekeeping.update",
+  "maintenance.manage",
+  "maintenance.update",
+  "guests.lookup",
+] as const;
+
+export const OVERRIDE_FIXTURES: PermissionOverride[] = [
+  {
+    id: "ovr-1",
+    userId: "staff-manager",
+    userName: "Efua Owusu",
+    permission: "refunds.initiate",
+    grantedBy: "Super Admin",
+    createdAt: "2026-08-24T10:10:00.000Z",
+    expiresAt: "2026-09-30T10:10:00.000Z",
+  },
+  {
+    id: "ovr-2",
+    userId: "staff-front-desk",
+    userName: "Ama Mensah",
+    permission: "audit.read",
+    grantedBy: "Super Admin",
+    createdAt: "2026-08-30T14:20:00.000Z",
+    expiresAt: "2026-09-06T14:20:00.000Z",
+  },
+  {
+    id: "ovr-3",
+    userId: "staff-accountant",
+    userName: "Kwame Osei",
+    permission: "staff.manage",
+    grantedBy: "Super Admin",
+    createdAt: "2026-07-01T09:00:00.000Z",
+    expiresAt: "2026-07-03T09:00:00.000Z",
+  },
+];
+
+export const WHITELIST_FIXTURES: WhitelistEntry[] = [
+  {
+    id: "wl-1",
+    userId: "staff-executive",
+    userName: "Nana Adjei",
+    reason: "Whitelisted by role policy [FR-012].",
+    grantedBy: "Super Admin",
+    createdAt: "2026-06-01T08:00:00.000Z",
+  },
+  {
+    id: "wl-2",
+    userId: "staff-super_admin",
+    userName: "Super Admin",
+    reason: "Never blocked — console must always be reachable.",
+    grantedBy: "Super Admin",
+    createdAt: "2026-06-01T08:00:00.000Z",
+  },
+  {
+    id: "wl-3",
+    userId: "staff-front-desk",
+    userName: "Ama Mensah",
+    reason: "Night-shift reception from the home kiosk.",
+    scopedHours: { start: "21:00", end: "06:00" },
+    grantedBy: "Super Admin",
+    createdAt: "2026-08-15T17:40:00.000Z",
+  },
+];
+
+export const STANDARD_AUDIT_FIXTURES: AuditEntry[] = [
+  {
+    id: "aud-1",
+    actor: "Kwame Osei",
+    actorRole: "accountant",
+    action: "Payment approved",
+    detail: "Payment #PAY-1042 approved (GHS 2,400).",
+    at: "2026-08-31T08:05:00.000Z",
+  },
+  {
+    id: "aud-2",
+    actor: "Ama Mensah",
+    actorRole: "front_desk",
+    action: "Checked in",
+    detail: "Guest A. Boateng checked in to room 402 (HT-6105).",
+    at: "2026-08-30T20:12:00.000Z",
+  },
+  {
+    id: "aud-3",
+    actor: "Efua Owusu",
+    actorRole: "manager",
+    action: "Room status override",
+    detail: "Room 217 set out-of-order pending carpet inspection.",
+    at: "2026-08-30T15:40:00.000Z",
+  },
+  {
+    id: "aud-4",
+    actor: "Akosua Danso",
+    actorRole: "housekeeping",
+    action: "Task completed",
+    detail: "Cleaning finished on room 118.",
+    at: "2026-08-29T11:22:00.000Z",
+  },
+  {
+    id: "aud-5",
+    actor: "Kofi Boateng",
+    actorRole: "maintenance",
+    action: "Work order closed",
+    detail: "AC fault resolved in suite 505.",
+    at: "2026-08-29T09:00:00.000Z",
+  },
+];
+
+export const ISOLATED_AUDIT_FIXTURES: AuditEntry[] = [
+  {
+    id: "iso-1",
+    actor: "Super Admin",
+    actorRole: "super_admin",
+    action: "Override granted",
+    detail: "Efua Owusu \u2192 refunds.initiate (until 30 Sep).",
+    at: "2026-08-24T10:10:00.000Z",
+  },
+  {
+    id: "iso-2",
+    actor: "Super Admin",
+    actorRole: "super_admin",
+    action: "Override granted",
+    detail: "Ama Mensah \u2192 audit.read (7-day time-box).",
+    at: "2026-08-30T14:20:00.000Z",
+  },
+  {
+    id: "iso-3",
+    actor: "Super Admin",
+    actorRole: "super_admin",
+    action: "Whitelist exemption added",
+    detail: "Ama Mensah \u2014 scoped 21:00\u201306:00 (night kiosk).",
+    at: "2026-08-15T17:40:00.000Z",
+  },
+  {
+    id: "iso-4",
+    actor: "Super Admin",
+    actorRole: "super_admin",
+    action: "Override revoked",
+    detail: "Kwame Osei \u2014 staff.manage (expired 03 Jul).",
+    at: "2026-07-03T10:00:00.000Z",
+  },
+  {
+    id: "iso-5",
+    actor: "Super Admin",
+    actorRole: "super_admin",
+    action: "Session unlocked",
+    detail: "Recovered locked console after idle-lock (workstation 04).",
+    at: "2026-08-31T07:55:00.000Z",
+  },
+];
+
+export const APPROVAL_FIXTURES: ApprovalItem[] = [
+  {
+    id: "appr-1",
+    ref: "PYM-8841",
+    guest: "Ama Serwaa",
+    method: "momo",
+    amount: 1250,
+    createdAt: "2026-08-31T08:20:00.000Z",
+    status: "pending",
+  },
+  {
+    id: "appr-2",
+    ref: "PYM-8839",
+    guest: "Daniel Boadu",
+    method: "card",
+    amount: 3480,
+    createdAt: "2026-08-31T08:06:00.000Z",
+    status: "pending",
+  },
+  {
+    id: "appr-3",
+    ref: "PYM-8836",
+    guest: "John Smith",
+    method: "cash",
+    amount: 940,
+    createdAt: "2026-08-31T07:48:00.000Z",
+    status: "pending",
+  },
+];
+
+export const REFUND_FIXTURES: RefundItem[] = [
+  {
+    id: "rfd-1",
+    ref: "REF-112",
+    guest: "Kwame Mensah",
+    amount: 850,
+    status: "pending",
+    createdAt: "2026-08-31T09:02:00.000Z",
+  },
+  {
+    id: "rfd-2",
+    ref: "REF-109",
+    guest: "Efua Owusu",
+    amount: 2140,
+    status: "manager_sign_off",
+    createdAt: "2026-08-30T16:40:00.000Z",
+  },
+];
+
+export const INVOICE_FIXTURES: InvoiceItem[] = [
+  {
+    id: "inv-1",
+    ref: "INV-9021",
+    guest: "Accra Chamber of Commerce",
+    amount: 48750,
+    status: "overdue",
+    dueDate: "2026-08-20",
+  },
+  {
+    id: "inv-2",
+    ref: "INV-9022",
+    guest: "GoldStar Travel Ltd",
+    amount: 22650,
+    status: "open",
+    dueDate: "2026-09-05",
+  },
+  {
+    id: "inv-3",
+    ref: "INV-9023",
+    guest: "British Council",
+    amount: 13900,
+    status: "open",
+    dueDate: "2026-09-12",
+  },
+];
+
+export const COLLECTION_HISTORY: CollectionBucket[] = [
+  { date: "Mon 25 Aug", amount: 17400 },
+  { date: "Tue 26 Aug", amount: 15200 },
+  { date: "Wed 27 Aug", amount: 18900 },
+  { date: "Thu 28 Aug", amount: 21100 },
+  { date: "Fri 29 Aug", amount: 19850 },
+  { date: "Sat 30 Aug", amount: 24100 },
+  { date: "Sun 31 Aug", amount: 18450 },
+];
+
+export const COLLECTION_SPLIT_TODAY: MethodSplit[] = [
+  { method: "cash", amount: 4875 },
+  { method: "card", amount: 9120 },
+  { method: "momo", amount: 4455 },
+];
+
+export const WORK_ORDER_FIXTURES: WorkOrderItem[] = [
+  { id: "wo-1", ref: "WO-2214", room: "405", issue: "AC not cooling", priority: "high", status: "open" },
+  { id: "wo-2", ref: "WO-2213", room: "509", issue: "Bathroom leak", priority: "high", status: "in_progress" },
+  { id: "wo-3", ref: "WO-2211", room: "217", issue: "Carpet stain — deep clean", priority: "medium", status: "open" },
+  { id: "wo-4", ref: "WO-2208", room: "118", issue: "TV no signal", priority: "low", status: "open" },
+  { id: "wo-5", ref: "WO-2204", room: "505", issue: "AC fault — resolved", priority: "low", status: "resolved" },
+];
+
+export const ATTENTION_FIXTURES: AttentionItem[] = [
+  { id: "attn-1", label: "High-priority maintenance", detail: "Rooms 405 and 509", priority: "high" },
+  { id: "attn-2", label: "Refund above threshold", detail: "PYM-8832 · GHS 6,400", priority: "medium" },
+  { id: "attn-3", label: "Escalated guest message", detail: "Conversation #1041", priority: "medium" },
+  { id: "attn-4", label: "Departed room outstanding charges", detail: "Room 217 · balance due", priority: "low" },
+];
+
+export const TEAM_SNAPSHOT_FIXTURES: TeamCounter[] = [
+  { label: "Housekeeping in progress", value: 3 },
+  { label: "Maintenance open work orders", value: 4 },
+  { label: "Guest approvals pending", value: 3 },
+  { label: "Rooms blocked for maintenance", value: 1 },
+];
+
+

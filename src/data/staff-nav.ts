@@ -10,7 +10,12 @@ export interface StaffNavItem {
 export interface StaffNavGroup {
   title: string;
   icon: IconName;
-  items: StaffNavItem[];
+  items?: StaffNavItem[];
+  children?: StaffNavGroup[];
+}
+
+export function navGroupItems(group: StaffNavGroup): StaffNavItem[] {
+  return group.children ? group.children.flatMap((c) => c.items ?? []) : group.items ?? [];
 }
 
 export interface StaffRoleMeta {
@@ -184,86 +189,91 @@ export const STAFF_ROLES: Record<string, StaffRoleMeta> = {
     key: "super_admin",
     label: "Super Admin",
     home: ROLE_LANDING.super_admin,
+    homeLabel: "Overview",
     groups: [
       {
-        title: "Reception",
-        icon: "key",
+        title: "Identity & Access",
+        icon: "users",
         items: [
-          { label: "Guest Lookup", href: "/super_admin/reception/lookup/", disabled: true },
-          { label: "Check-in / Check-out", href: "/super_admin/reception/check-in/", disabled: true },
-          { label: "Room Rack", href: "/super_admin/reception/rack/", disabled: true },
-          { label: "Guest Inbox", href: "/super_admin/reception/inbox/", disabled: true },
+          { label: "Staff Accounts", href: "/super_admin/it/accounts/", disabled: true },
+          { label: "Guest Accounts", href: "/super_admin/it/guests/", disabled: true },
+          { label: "Sessions & Devices", href: "/super_admin/it/sessions/", disabled: true },
         ],
       },
       {
-        title: "Finance",
-        icon: "wallet",
+        title: "Settings",
+        icon: "settings",
         items: [
-          { label: "Approvals Queue", href: "/super_admin/finance/approvals/", disabled: true },
-          { label: "Invoices", href: "/super_admin/finance/invoices/", disabled: true },
-          { label: "Refunds", href: "/super_admin/finance/refunds/", disabled: true },
-          { label: "Reconciliation", href: "/super_admin/finance/reconciliation/", disabled: true },
+          { label: "Health & Tokens", href: "/super_admin/it/health/", disabled: true },
+          { label: "Permission Overrides", href: "/super_admin/overrides/", disabled: false },
+          { label: "Geofence Whitelist", href: "/super_admin/whitelist/", disabled: false },
+          { label: "Environment & Deployments", href: "/super_admin/env/deployments/", disabled: true },
+          { label: "Feature Flags / Toggles", href: "/super_admin/settings/feature-flags/", disabled: true },
+          { label: "Booking & Payments Config", href: "/super_admin/settings/booking-payments/", disabled: true },
+          { label: "Audit & Log Retention", href: "/super_admin/settings/audit-retention/", disabled: true },
+          { label: "Identity & SSO Settings", href: "/super_admin/settings/identity-sso/", disabled: true },
+          { label: "API Config", href: "/super_admin/api-config/", disabled: true },
         ],
       },
       {
-        title: "Housekeeping",
+        title: "Reports",
         icon: "list",
         items: [
-          { label: "Cleaning Board", href: "/super_admin/housekeeping/board/", disabled: true },
-          { label: "Inspections", href: "/super_admin/housekeeping/inspection/", disabled: true },
-        ],
-      },
-      {
-        title: "Maintenance",
-        icon: "wrench",
-        items: [
-          { label: "Work Orders", href: "/super_admin/maintenance/orders/", disabled: true },
-          { label: "Room Blocking", href: "/super_admin/maintenance/blocking/", disabled: true },
-        ],
-      },
-      {
-        title: "Management",
-        icon: "shield",
-        items: [
-          { label: "Audit Log", href: "/super_admin/management/audit-log/", disabled: true },
+          { label: "Audit Log", href: "/super_admin/audit-log/", disabled: false },
+          { label: "Oversight Log", href: "/super_admin/oversight-log/", disabled: false },
           { label: "Refund Sign-off", href: "/super_admin/management/refunds/", disabled: true },
           { label: "Reports", href: "/super_admin/management/reports/", disabled: true },
         ],
       },
       {
-        title: "IT & Platforms",
-        icon: "users",
-        items: [
-          { label: "Staff Accounts", href: "/super_admin/it/accounts/", disabled: true },
-          { label: "Sessions & Devices", href: "/super_admin/it/sessions/", disabled: true },
-          { label: "Health & Tokens", href: "/super_admin/it/health/", disabled: true },
-        ],
-      },
-      {
-        title: "Executive",
-        icon: "chart",
-        items: [
-          { label: "Recommendations", href: "/super_admin/executive/recommendations/", disabled: true },
-          { label: "Demand Snapshot", href: "/super_admin/executive/demand/", disabled: true },
-          { label: "Forecast", href: "/super_admin/executive/forecast/", disabled: true },
-        ],
-      },
-      {
-        title: "Oversight",
-        icon: "shield-check",
-        items: [
-          { label: "Permission Overrides", href: "/super_admin/overrides/", disabled: true },
-          { label: "Geofence Whitelist", href: "/super_admin/whitelist/", disabled: true },
-          { label: "Oversight Log", href: "/super_admin/oversight-log/", disabled: true },
-        ],
-      },
-      {
-        title: "System",
-        icon: "settings",
-        items: [
-          { label: "Role Matrix", href: "/super_admin/matrix/", disabled: true },
-          { label: "Seed Accounts", href: "/super_admin/seeds/", disabled: true },
-          { label: "API Config", href: "/super_admin/api-config/", disabled: true },
+        title: "Hotel",
+        icon: "briefcase",
+        children: [
+          {
+            title: "Reception",
+            icon: "key",
+            items: [
+              { label: "Guest Lookup", href: "/super_admin/reception/lookup/", disabled: true },
+              { label: "Check-in / Check-out", href: "/super_admin/reception/check-in/", disabled: true },
+              { label: "Room Rack", href: "/super_admin/reception/rack/", disabled: true },
+              { label: "Guest Inbox", href: "/super_admin/reception/inbox/", disabled: true },
+            ],
+          },
+          {
+            title: "Finance",
+            icon: "wallet",
+            items: [
+              { label: "Approvals Queue", href: "/super_admin/finance/approvals/", disabled: true },
+              { label: "Invoices", href: "/super_admin/finance/invoices/", disabled: true },
+              { label: "Refunds", href: "/super_admin/finance/refunds/", disabled: true },
+              { label: "Reconciliation", href: "/super_admin/finance/reconciliation/", disabled: true },
+            ],
+          },
+          {
+            title: "Housekeeping",
+            icon: "list",
+            items: [
+              { label: "Cleaning Board", href: "/super_admin/housekeeping/board/", disabled: true },
+              { label: "Inspections", href: "/super_admin/housekeeping/inspection/", disabled: true },
+            ],
+          },
+          {
+            title: "Maintenance",
+            icon: "wrench",
+            items: [
+              { label: "Work Orders", href: "/super_admin/maintenance/orders/", disabled: true },
+              { label: "Room Blocking", href: "/super_admin/maintenance/blocking/", disabled: true },
+            ],
+          },
+          {
+            title: "Executive",
+            icon: "chart",
+            items: [
+              { label: "Recommendations", href: "/super_admin/executive/recommendations/", disabled: true },
+              { label: "Demand Snapshot", href: "/super_admin/executive/demand/", disabled: true },
+              { label: "Forecast", href: "/super_admin/executive/forecast/", disabled: true },
+            ],
+          },
         ],
       },
     ],

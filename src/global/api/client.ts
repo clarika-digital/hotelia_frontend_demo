@@ -196,10 +196,15 @@ export async function put<T, B = unknown>(
   return request<T>(path, { ...options, method: "PUT", body });
 }
 
+export async function del<T>(path: string, options?: RequestOptions): Promise<T> {
+  return request<T>(path, { ...options, method: "DELETE" });
+}
+
 export const client = {
   mode: API_MODE,
   useMockEngine: USE_MOCK_ENGINE,
   get,
   post,
   put,
+  delete: del,
 };

@@ -26,6 +26,7 @@ export type IconName =
   | "alert-triangle"
   | "check"
   | "history"
+  | "search"
   | "support"
   | "arrow-left"
   | "star"
@@ -188,6 +189,12 @@ const ICON_PATHS: Record<IconName, ReactNode> = {
       <path d="M3 12a9 9 0 1 0 9-9" />
       <path d="M3 4v5h5" />
       <path d="M12 7v5l3 2" />
+    </>
+  ),
+  search: (
+    <>
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.35-4.35" />
     </>
   ),
   support: (

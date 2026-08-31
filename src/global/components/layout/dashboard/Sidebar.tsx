@@ -3,13 +3,24 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import type { StaffNavGroup, StaffRoleMeta } from "@/data/staff-nav";
+import type { StaffNavGroup, StaffNavItem, StaffRoleMeta } from "@/data/staff-nav";
+import { navGroupItems } from "@/data/staff-nav";
+import { poweredBy } from "@/data/site";
 import { Icon } from "@/global/components/ui/Icon";
 import { cn } from "@/lib/cn";
 
 function isActive(pathname: string, href: string): boolean {
   const norm = (p: string) => p.replace(/\/+$/, "") || "/";
   return norm(pathname) === norm(href);
+}
+
+function groupHasActive(
+  group: StaffNavGroup,
+  pathname: string
+): boolean {
+  return navGroupItems(group).some(
+    (i) => !i.disabled && isActive(pathname, i.href)
+  );
 }
 
 interface SidebarProps {
@@ -42,9 +53,7 @@ export function Sidebar({
   }, [meta]);
 
   useEffect(() => {
-    const activeGroup = meta.groups.find((g) =>
-      g.items.some((i) => !i.disabled && isActive(pathname, i.href))
-    );
+    const activeGroup = meta.groups.find((g) => groupHasActive(g, pathname));
     if (activeGroup) {
       setOpenGroups((prev) =>
         prev[activeGroup.title] ? prev : { ...prev, [activeGroup.title]: true }
@@ -58,7 +67,7 @@ export function Sidebar({
 
   const homeActive = isActive(pathname, meta.home);
 
-  const itemRow = (item: { label: string; href: string; disabled?: boolean }) => {
+  const itemRow = (item: StaffNavItem) => {
     const active = !item.disabled && isActive(pathname, item.href);
     const cls = cn(
       "flex items-center gap-2.5 rounded-lg py-2 pr-3 text-sm transition-colors",
@@ -86,9 +95,7 @@ export function Sidebar({
 
   const groupButton = (g: StaffNavGroup) => {
     const open = !!openGroups[g.title];
-    const hasActive = g.items.some(
-      (i) => !i.disabled && isActive(pathname, i.href)
-    );
+    const hasActive = groupHasActive(g, pathname);
     return (
       <button
         type="button"
@@ -237,80 +244,94 @@ export function Sidebar({
               {wide ? (
                 <div>
                   {groupButton(g)}
-                  {openGroups[g.title] && (
-                    <ul className="mb-1 mt-1 space-y-0.5 pl-11">
-                      {g.items.map((item) => (
-                        <li key={item.label}>{itemRow(item)}</li>
-                      ))}
-                    </ul>
-                  )}
+                  {openGroups[g.title] &&
+                    (g.children ? (
+                      <div className="mb-1 mt-1 space-y-3 pl-11">
+                        {g.children.map((child) => (
+                          <div key={child.title}>
+                            <p className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-white/40">
+                              <Icon
+                                name={child.icon}
+                                className="h-3.5 w-3.5 text-brand-goldBright/80"
+                              />
+                              {child.title}
+                            </p>
+                            <ul className="space-y-0.5">
+                              {(child.items ?? []).map((item) => (
+                                <li key={item.label}>{itemRow(item)}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <ul className="mb-1 mt-1 space-y-0.5 pl-11">
+                        {(g.items ?? []).map((item) => (
+                          <li key={item.label}>{itemRow(item)}</li>
+                        ))}
+                      </ul>
+                    ))}
                 </div>
               ) : (
                 <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => toggleGroup(g.title)}
-                    aria-label={g.title}
-                    title={g.title}
-                    aria-expanded={!!openGroups[g.title]}
-                    className={cn(
-                      "flex h-11 w-full items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-goldBright/50",
-                      openGroups[g.title] ||
-                        g.items.some(
-                          (i) => !i.disabled && isActive(pathname, i.href)
-                        )
-                        ? "bg-white/10 text-brand-goldBright"
-                        : "text-white/60 hover:bg-white/10 hover:text-white"
-                    )}
-                  >
-                    <Icon name={g.icon} className="h-5 w-5" />
-                    {(openGroups[g.title] ||
-                      g.items.some(
-                        (i) => !i.disabled && isActive(pathname, i.href)
-                      )) && (
-                      <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-brand-goldBright" />
-                    )}
-                  </button>
+<button
+                      type="button"
+                      onClick={() => toggleGroup(g.title)}
+                      aria-label={g.title}
+                      title={g.title}
+                      aria-expanded={!!openGroups[g.title]}
+                      className={cn(
+                        "flex h-11 w-full items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-goldBright/50",
+                        openGroups[g.title] || groupHasActive(g, pathname)
+                          ? "bg-white/10 text-brand-goldBright"
+                          : "text-white/60 hover:bg-white/10 hover:text-white"
+                      )}
+                    >
+                      <Icon name={g.icon} className="h-5 w-5" />
+                      {(openGroups[g.title] || groupHasActive(g, pathname)) && (
+                        <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-brand-goldBright" />
+                      )}
+                    </button>
 
-                  {hoverGroup === g.title && (
-                    <div className="absolute left-full top-0 z-50 ml-2 w-60 rounded-xl border border-gray-200 bg-white p-3 text-left text-gray-700 shadow-xl">
-                      <p className="mb-2 px-2 text-[11px] font-bold uppercase tracking-widest text-gray-400">
-                        {g.title}
-                      </p>
-                      <ul className="space-y-0.5">
-                        {g.items.map((item) =>
-                          item.disabled ? (
-                            <li key={item.label}>
-                              <span
-                                className="flex cursor-not-allowed items-center gap-2 rounded-lg px-2 py-2 text-sm text-gray-400"
-                                aria-disabled
-                              >
-                                <span className="truncate">{item.label}</span>
-                                <span className="ml-auto shrink-0 rounded-full bg-surface-muted px-2 py-0.5 text-[10px] font-semibold text-gray-400">
-                                  Soon
+                    {hoverGroup === g.title && (
+                      <div className="absolute left-full top-0 z-50 ml-2 w-60 rounded-xl border border-gray-200 bg-white p-3 text-left text-gray-700 shadow-xl">
+                        <p className="mb-2 px-2 text-[11px] font-bold uppercase tracking-widest text-gray-400">
+                          {g.title}
+                        </p>
+                        <ul className="space-y-0.5">
+                          {navGroupItems(g).map((item) =>
+                            item.disabled ? (
+                              <li key={item.label}>
+                                <span
+                                  className="flex cursor-not-allowed items-center gap-2 rounded-lg px-2 py-2 text-sm text-gray-400"
+                                  aria-disabled
+                                >
+                                  <span className="truncate">{item.label}</span>
+                                  <span className="ml-auto shrink-0 rounded-full bg-surface-muted px-2 py-0.5 text-[10px] font-semibold text-gray-400">
+                                    Soon
+                                  </span>
                                 </span>
-                              </span>
-                            </li>
-                          ) : (
-                            <li key={item.label}>
-                              <Link
-                                href={item.href}
-                                onClick={onNavigate}
-                                className={cn(
-                                  "flex items-center gap-2 rounded-lg px-2 py-2 text-sm no-underline transition-colors",
-                                  isActive(pathname, item.href)
-                                    ? "bg-surface-muted font-semibold text-brand-navy"
-                                    : "text-gray-600 hover:bg-surface-muted hover:text-brand-navy"
-                                )}
-                              >
-                                <span className="truncate">{item.label}</span>
-                              </Link>
-                            </li>
-                          )
-                        )}
-                      </ul>
-                    </div>
-                  )}
+                              </li>
+                            ) : (
+                              <li key={item.label}>
+                                <Link
+                                  href={item.href}
+                                  onClick={onNavigate}
+                                  className={cn(
+                                    "flex items-center gap-2 rounded-lg px-2 py-2 text-sm no-underline transition-colors",
+                                    isActive(pathname, item.href)
+                                      ? "bg-surface-muted font-semibold text-brand-navy"
+                                      : "text-gray-600 hover:bg-surface-muted hover:text-brand-navy"
+                                  )}
+                                >
+                                  <span className="truncate">{item.label}</span>
+                                </Link>
+                              </li>
+                            )
+                          )}
+                        </ul>
+                      </div>
+                    )}
                 </div>
               )}
             </div>
@@ -327,17 +348,29 @@ export function Sidebar({
         {wide ? (
           <p className="text-center text-[11px] leading-relaxed text-white/45">
             Powered by{" "}
-            <span className="font-semibold text-white/70">
-              Teva Clarica Digital™
-            </span>
+            <a
+              href={poweredBy.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-white/70 no-underline hover:text-brand-goldBright"
+            >
+              {poweredBy.label}
+            </a>
             <span className="mt-0.5 block">© {year}</span>
           </p>
         ) : (
           <p
             className="text-center text-[10px] leading-tight text-white/45"
-            title={`Powered by Teva Clarica Digital™ © ${year}`}
+            title={`Powered by ${poweredBy.label} © ${year}`}
           >
-            TC™
+            <a
+              href={poweredBy.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="no-underline hover:text-brand-goldBright"
+            >
+              TC
+            </a>
             <span className="block">© {year}</span>
           </p>
         )}

@@ -8,7 +8,7 @@ import { getRoomHref } from "@/data/rooms";
 import { formatMoney } from "@/lib/formatters";
 import { cn } from "@/lib/cn";
 import { logout } from "@/domains/auth/api";
-import { PAGE_ROUTES } from "@/domains/auth/constants";
+import { PAGE_ROUTES, ROLE_LANDING } from "@/domains/auth/constants";
 import { BOOKING_PAGE_ROUTES } from "@/domains/booking/constants";
 import { useSessionStore } from "@/stores/session-store";
 
@@ -93,7 +93,12 @@ export function Header() {
                     My Account
                   </Link>
                 ) : (
-                  <span className="text-brand-navy">Staff</span>
+                  <Link
+                    href={ROLE_LANDING[claims.role ?? ""] ?? PAGE_ROUTES.staffPortal}
+                    className="no-underline text-brand-navy"
+                  >
+                    Staff
+                  </Link>
                 )}
                 <span className="text-[#ccc]">|</span>
                 <button
@@ -318,13 +323,21 @@ export function Header() {
                 <span className="text-sm font-semibold text-brand-navy">
                   Hi, {firstName}
                 </span>
-                {claims.userType === "guest" && (
+                {claims.userType === "guest" ? (
                   <Link
                     href={PAGE_ROUTES.guestAccount}
                     onClick={() => setMobileOpen(false)}
                     className="text-sm font-semibold text-brand-gold no-underline"
                   >
                     My Account
+                  </Link>
+                ) : (
+                  <Link
+                    href={ROLE_LANDING[claims.role ?? ""] ?? PAGE_ROUTES.staffPortal}
+                    onClick={() => setMobileOpen(false)}
+                    className="text-sm font-semibold text-brand-gold no-underline"
+                  >
+                    My Dashboard
                   </Link>
                 )}
                 <button
